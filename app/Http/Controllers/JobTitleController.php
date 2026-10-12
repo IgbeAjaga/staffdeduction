@@ -2,63 +2,70 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
+use App\Models\JobTitle;
+use App\Http\Requests\StoreJobTitleRequest;
+use App\Http\Requests\UpdateJobTitleRequest;
 
 class JobTitleController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
     public function index()
     {
-        //
+        $jobTitles = JobTitle::withTrashed()
+            ->orderBy('name')
+            ->paginate(20);
+
+        return view('job-titles.index', compact('jobTitles'));
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
     public function create()
     {
-        //
+        return view('job-titles.create');
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
-    public function store(Request $request)
+    public function store(StoreJobTitleRequest $request)
     {
-        //
+        JobTitle::create($request->validated());
+
+        return redirect()
+            ->route('job-titles.index')
+            ->with('success', 'Job Title created successfully.');
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(string $id)
+    public function show(JobTitle $jobTitle)
     {
-        //
+        return view('job-titles.show', compact('jobTitle'));
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(string $id)
+    public function edit(JobTitle $jobTitle)
     {
-        //
+        return view('job-titles.edit', compact('jobTitle'));
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, string $id)
+    public function update(UpdateJobTitleRequest $request, JobTitle $jobTitle)
     {
-        //
+        $jobTitle->update($request->validated());
+
+        return redirect()
+            ->route('job-titles.index')
+            ->with('success', 'Job Title updated successfully.');
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(string $id)
+    public function destroy(JobTitle $jobTitle)
     {
-        //
+        $jobTitle->delete();
+
+        return redirect()
+            ->route('job-titles.index')
+            ->with('success', 'Job Title soft-deleted successfully.');
+    }
+
+    public function restore(int $id)
+    {
+        $jobTitle = JobTitle::withTrashed()->findOrFail($id);
+        $jobTitle->restore();
+
+        return redirect()
+            ->route('job-titles.index')
+            ->with('success', 'Job Title restored successfully.');
     }
 }

@@ -2,63 +2,70 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
+use App\Models\DeductionType;
+use App\Http\Requests\StoreDeductionTypeRequest;
+use App\Http\Requests\UpdateDeductionTypeRequest;
 
 class DeductionTypeController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
     public function index()
     {
-        //
+        $deductionTypes = DeductionType::withTrashed()
+            ->orderBy('name')
+            ->paginate(20);
+
+        return view('deduction-types.index', compact('deductionTypes'));
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
     public function create()
     {
-        //
+        return view('deduction-types.create');
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
-    public function store(Request $request)
+    public function store(StoreDeductionTypeRequest $request)
     {
-        //
+        DeductionType::create($request->validated());
+
+        return redirect()
+            ->route('deduction-types.index')
+            ->with('success', 'Deduction Type created successfully.');
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(string $id)
+    public function show(DeductionType $deductionType)
     {
-        //
+        return view('deduction-types.show', compact('deductionType'));
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(string $id)
+    public function edit(DeductionType $deductionType)
     {
-        //
+        return view('deduction-types.edit', compact('deductionType'));
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, string $id)
+    public function update(UpdateDeductionTypeRequest $request, DeductionType $deductionType)
     {
-        //
+        $deductionType->update($request->validated());
+
+        return redirect()
+            ->route('deduction-types.index')
+            ->with('success', 'Deduction Type updated successfully.');
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(string $id)
+    public function destroy(DeductionType $deductionType)
     {
-        //
+        $deductionType->delete();
+
+        return redirect()
+            ->route('deduction-types.index')
+            ->with('success', 'Deduction Type soft-deleted successfully.');
+    }
+
+    public function restore(int $id)
+    {
+        $deductionType = DeductionType::withTrashed()->findOrFail($id);
+        $deductionType->restore();
+
+        return redirect()
+            ->route('deduction-types.index')
+            ->with('success', 'Deduction Type restored successfully.');
     }
 }

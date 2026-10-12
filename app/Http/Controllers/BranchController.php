@@ -2,63 +2,70 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
+use App\Models\Branch;
+use App\Http\Requests\StoreBranchRequest;
+use App\Http\Requests\UpdateBranchRequest;
 
 class BranchController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
     public function index()
     {
-        //
+        $branches = Branch::withTrashed()
+            ->orderBy('name')
+            ->paginate(20);
+
+        return view('branches.index', compact('branches'));
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
     public function create()
     {
-        //
+        return view('branches.create');
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
-    public function store(Request $request)
+    public function store(StoreBranchRequest $request)
     {
-        //
+        Branch::create($request->validated());
+
+        return redirect()
+            ->route('branches.index')
+            ->with('success', 'Branch created successfully.');
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(string $id)
+    public function show(Branch $branch)
     {
-        //
+        return view('branches.show', compact('branch'));
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(string $id)
+    public function edit(Branch $branch)
     {
-        //
+        return view('branches.edit', compact('branch'));
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, string $id)
+    public function update(UpdateBranchRequest $request, Branch $branch)
     {
-        //
+        $branch->update($request->validated());
+
+        return redirect()
+            ->route('branches.index')
+            ->with('success', 'Branch updated successfully.');
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(string $id)
+    public function destroy(Branch $branch)
     {
-        //
+        $branch->delete();
+
+        return redirect()
+            ->route('branches.index')
+            ->with('success', 'Branch soft-deleted successfully.');
+    }
+
+    public function restore(int $id)
+    {
+        $branch = Branch::withTrashed()->findOrFail($id);
+        $branch->restore();
+
+        return redirect()
+            ->route('branches.index')
+            ->with('success', 'Branch restored successfully.');
     }
 }
