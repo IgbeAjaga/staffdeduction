@@ -44,6 +44,8 @@ class User extends Authenticatable implements MustVerifyEmail, PasskeyUser
     {
         return [
             'email_verified_at' => 'datetime',
+            'approved_at' => 'datetime',
+        'is_approved' => 'boolean',
             'password' => 'hashed',
         ];
     }

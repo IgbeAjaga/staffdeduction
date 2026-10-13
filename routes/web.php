@@ -1,30 +1,153 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DeductionController;
+use App\Http\Controllers\BranchController;
+use App\Http\Controllers\DepartmentController;
+use App\Http\Controllers\JobTitleController;
+use App\Http\Controllers\DeductionTypeController;
+use App\Http\Controllers\ReportController;
+use App\Http\Controllers\DeductionAuditController;
+use App\Http\Controllers\SoftDeleteLogController;
+use App\Http\Controllers\UserApprovalController;
 
-Route::view('/', 'welcome')->name('home');
+/*
+|--------------------------------------------------------------------------
+| Web Routes
+|--------------------------------------------------------------------------
+*/
+
+Route::get('/', function () {
+    return view('welcome');
+})->name('welcome');
 
 Route::middleware(['auth', 'verified'])->group(function () {
-    
+
+    // ==================== DASHBOARD ====================
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+
+    // ==================== DEDUCTIONS ====================
     Route::resource('deductions', DeductionController::class);
-    Route::post('deductions/{deduction}/approve', [DeductionController::class, 'approve'])->name('deductions.approve');
-    Route::post('deductions/{deduction}/reject', [DeductionController::class, 'reject'])->name('deductions.reject');
-    Route::post('deductions/{deduction}/apply', [DeductionController::class, 'apply'])->name('deductions.apply');
 
-    // Master data
+    // Deduction workflow actions
+    Route::post('deductions/{deduction}/approve', [DeductionController::class, 'approve'])
+        ->name('deductions.approve');
+    Route::post('deductions/{deduction}/reject', [DeductionController::class, 'reject'])
+        ->name('deductions.reject');
+    Route::post('deductions/{deduction}/apply', [DeductionController::class, 'apply'])
+        ->name('deductions.apply');
+    Route::post('deductions/{deduction}/cancel', [DeductionController::class, 'cancel'])
+        ->name('deductions.cancel');
+
+    // ==================== BRANCHES ====================
     Route::resource('branches', BranchController::class);
+    Route::post('branches/{id}/restore', [BranchController::class, 'restore'])
+        ->name('branches.restore');
+
+    // ==================== DEPARTMENTS ====================
     Route::resource('departments', DepartmentController::class);
-    // ...
+    Route::post('departments/{id}/restore', [DepartmentController::class, 'restore'])
+        ->name('departments.restore');
 
-    // Reports & Export
-    Route::get('reports/deductions', [ReportController::class, 'index'])->name('reports.deductions');
-    Route::get('export/excel', [ReportController::class, 'exportExcel'])->name('export.excel');
-    Route::get('export/pdf', [ReportController::class, 'exportPdf'])->name('export.pdf');
+    // ==================== JOB TITLES ====================
+    Route::resource('job-titles', JobTitleController::class);
+    Route::post('job-titles/{id}/restore', [JobTitleController::class, 'restore'])
+        ->name('job-titles.restore');
 
-    // Soft delete logs (superadmin only)
-    Route::get('soft-delete-logs', [SoftDeleteLogController::class, 'index'])
-        ->middleware('role:superadmin')
-        ->name('soft-delete-logs.index');
+    // ==================== DEDUCTION TYPES ====================
+    Route::resource('deduction-types', DeductionTypeController::class);
+    Route::post('deduction-types/{id}/restore', [DeductionTypeController::class, 'restore'])
+        ->name('deduction-types.restore');
+
+    // ==================== REPORTS ====================
+    Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
+    Route::get('reports/export/excel', [ReportController::class, 'exportExcel'])->name('reports.export.excel');
+    Route::get('reports/export/pdf', [ReportController::class, 'exportPdf'])->name('reports.export.pdf');
+    Route::get('reports/print', [ReportController::class, 'print'])->name('reports.print');
+
+    // ==================== AUDIT TRAILS ====================
+    Route::get('audits', [DeductionAuditController::class, 'index'])->name('audits.index');
+    Route::get('audits/deduction/{deduction}', [DeductionAuditController::class, 'show'])->name('audits.show');
+
+    // ==================== SOFT DELETE LOGS (Superadmin only recommended) ====================
+    Route::get('soft-delete-logs', [SoftDeleteLogController::class, 'index'])->name('soft-delete-logs.index');
+    Route::get('soft-delete-logs/{softDeleteLog}', [SoftDeleteLogController::class, 'show'])->name('soft-delete-logs.show');
+    Route::delete('soft-delete-logs/{softDeleteLog}', [SoftDeleteLogController::class, 'destroy'])->name('soft-delete-logs.destroy');
+
 });
 
-require __DIR__.'/settings.php';
+/*
+|--------------------------------------------------------------------------
+| SUPERADMIN ONLY
+|--------------------------------------------------------------------------
+*/
+
+Route::middleware([
+    'auth',
+    'superadmin'
+])->prefix('superadmin')->name('superadmin.')->group(function () {
+
+    /*
+    |--------------------------------------------------------------------------
+    | SUPERADMIN  DASHBOARD
+    |--------------------------------------------------------------------------
+    */
+
+    Route::get(
+        '/dashboard',
+        [DashboardController::class, 'superAdmin']
+    )->name('dashboard');
+
+    /*
+    |--------------------------------------------------------------------------
+    | USER MANAGEMENT
+    |--------------------------------------------------------------------------
+    */
+
+    Route::get(
+        '/users',
+        [UserApprovalController::class, 'index']
+    )->name('users.index');
+
+    Route::patch(
+        '/users/{user}/approve',
+        [UserApprovalController::class, 'approve']
+    )->name('users.approve');
+
+    Route::patch(
+        '/users/{user}/disapprove',
+        [UserApprovalController::class, 'disapprove']
+    )->name('users.disapprove');
+
+});
+
+/*
+|--------------------------------------------------------------------------
+| ADMIN ONLY
+|--------------------------------------------------------------------------
+*/
+
+Route::middleware([
+    'auth',
+    'admin'
+])->prefix('admin')->name('admin.')->group(function () {
+
+    Route::get(
+        '/dashboard',
+        [DashboardController::class, 'admin']
+    )->name('dashboard');
+
+});
+
+
+
+/*
+|--------------------------------------------------------------------------
+| Auth Routes (Laravel Breeze / Fortify)
+|--------------------------------------------------------------------------
+| These are usually auto-loaded by Breeze or Fortify.
+| Keep them if you are using Breeze.
+*/
+
+require __DIR__.'/auth.php';
