@@ -2,63 +2,104 @@
 
 namespace App\Models;
 
-use Database\Factories\UserFactory;
-use Illuminate\Contracts\Auth\MustVerifyEmail;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
-use Illuminate\Database\Eloquent\Attributes\Hidden;
+use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Notifications\Notifiable;
-use Illuminate\Support\Carbon;
-use Illuminate\Support\Str;
-use Laravel\Fortify\Contracts\PasskeyUser;
-use Laravel\Fortify\PasskeyAuthenticatable;
-use Laravel\Fortify\TwoFactorAuthenticatable;
 
-/**
- * @property int $id
- * @property string $name
- * @property string $email
- * @property Carbon|null $email_verified_at
- * @property string $password
- * @property string|null $two_factor_secret
- * @property string|null $two_factor_recovery_codes
- * @property Carbon|null $two_factor_confirmed_at
- * @property string|null $remember_token
- * @property Carbon|null $created_at
- * @property Carbon|null $updated_at
- */
-#[Fillable(['name', 'email', 'password'])]
-#[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
-class User extends Authenticatable implements MustVerifyEmail, PasskeyUser
+class User extends Authenticatable
 {
-    /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable, PasskeyAuthenticatable, TwoFactorAuthenticatable;
+    use HasFactory, Notifiable;
 
     /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
+     * Mass assignable attributes
      */
-    protected function casts(): array
+    protected $fillable = [
+        'name',
+        'email',
+        'password',
+        'role',
+        'is_approved',
+        'approved_at',
+        'approved_by',
+    ];
+
+    /**
+     * Hidden attributes
+     */
+    protected $hidden = [
+        'password',
+        'remember_token',
+    ];
+
+    /**
+     * Attribute casting
+     */
+    protected $casts = [
+        'email_verified_at' => 'datetime',
+        'approved_at'       => 'datetime',
+        'is_approved'       => 'boolean',
+        'password'          => 'hashed',
+    ];
+
+    /* =========================
+     |  ROLE HELPERS
+     |========================= */
+
+    public function isSuperSuperAdmin(): bool
     {
-        return [
-            'email_verified_at' => 'datetime',
-            'approved_at' => 'datetime',
-        'is_approved' => 'boolean',
-            'password' => 'hashed',
-        ];
+        return $this->role === 'supersuperadmin';
     }
 
-    /**
-     * Get the user's initials
-     */
-    public function initials(): string
+    public function isSuperAdmin(): bool
     {
-        $initials = Str::initials($this->name, true);
+        return in_array($this->role, ['superadmin', 'supersuperadmin']);
+    }
 
-        return Str::length($initials) > 1
-            ? Str::substr($initials, 0, 1).Str::substr($initials, -1)
-            : $initials;
+    public function isAdmin(): bool
+    {
+        return $this->role === 'admin';
+    }
+
+    public function isUser(): bool
+    {
+        return $this->role === 'user';
+    }
+
+    /* =========================
+     |  APPROVAL RELATIONSHIPS
+     |========================= */
+
+    // Superadmin/Admin who approved this user
+    public function approver()
+    {
+        return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    // Users approved by this superadmin/admin
+    public function approvedUsers()
+    {
+        return $this->hasMany(User::class, 'approved_by');
+    }
+
+    /* =========================
+     |  DEDUCTION RELATIONSHIPS
+     |========================= */
+
+    // Deductions created by this user
+    public function deductions()
+    {
+        return $this->hasMany(Deduction::class, 'created_by');
+    }
+
+    // Deduction audit logs performed by this user
+    public function deductionAudits()
+    {
+        return $this->hasMany(DeductionAudit::class, 'user_id');
+    }
+
+    // Soft delete logs performed by this user
+    public function softDeleteLogs()
+    {
+        return $this->hasMany(SoftDeleteLog::class, 'deleted_by');
     }
 }

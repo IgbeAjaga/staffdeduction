@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+
 class Department extends Model
 {
     use SoftDeletes;
@@ -13,6 +14,7 @@ class Department extends Model
     protected $fillable = [
         'name',
         'is_active',
+        
     ];
 
     protected $casts = [
