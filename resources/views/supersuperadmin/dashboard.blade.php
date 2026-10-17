@@ -8,236 +8,117 @@
     <div class="header-navbar-shadow"></div>
 
     <div class="content-wrapper">
+        @include('dashboards.partials.header', ['title' => 'Super Super Admin Dashboard'])
 
-        {{-- Page Header --}}
-        <div class="content-header row">
-            <div class="content-header-left col-md-9 col-12 mb-2">
-                <div class="row breadcrumbs-top">
-                    <div class="col-12">
-                        <h2 class="content-header-title float-start mb-0">
-                            Super Super Admin Dashboard
-                        </h2>
-                        <div class="breadcrumb-wrapper">
-                            <ol class="breadcrumb">
-                                <li class="breadcrumb-item">
-                                    <a href="{{ route('dashboard') }}">Home</a>
-                                </li>
-                                <li class="breadcrumb-item active">
-                                    Super Super Admin Dashboard
-                                </li>
-                            </ol>
-                        </div>
-                    </div>
-                </div>
+        @if(session('success'))
+            <div class="alert alert-success alert-dismissible fade show">
+                {{ session('success') }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             </div>
-        </div>
+        @endif
 
-        {{-- Content Body --}}
         <div class="content-body">
             <section>
                 <div class="row">
-
-                    {{-- Total Deductions --}}
-                    <div class="col-xl-3 col-md-6 col-12">
-                        <div class="card">
-                            <div class="card-body">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <div>
-                                        <h6 class="text-muted mb-0">Total Deductions</h6>
-                                        <h2 class="fw-bolder mb-1">
-                                            {{ \App\Models\Deduction::count() }}
-                                        </h2>
-                                        <a href="{{ route('deductions.index') }}" class="text-primary">
-                                            View All →
-                                        </a>
-                                    </div>
-                                    <div class="avatar bg-light-primary">
-                                        <div class="avatar-content">
-                                            <i data-feather="file-text"></i>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {{-- Pending Deductions --}}
-                    <div class="col-xl-3 col-md-6 col-12">
-                        <div class="card">
-                            <div class="card-body">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <div>
-                                        <h6 class="text-muted mb-0">Pending</h6>
-                                        <h2 class="fw-bolder mb-1 text-warning">
-                                            {{ \App\Models\Deduction::where('status', 'pending')->count() }}
-                                        </h2>
-                                        <a href="{{ route('deductions.index', ['status' => 'pending']) }}" class="text-warning">
-                                            Review Pending →
-                                        </a>
-                                    </div>
-                                    <div class="avatar bg-light-warning">
-                                        <div class="avatar-content">
-                                            <i data-feather="clock"></i>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {{-- Approved Deductions --}}
-                    <div class="col-xl-3 col-md-6 col-12">
-                        <div class="card">
-                            <div class="card-body">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <div>
-                                        <h6 class="text-muted mb-0">Approved</h6>
-                                        <h2 class="fw-bolder mb-1 text-success">
-                                            {{ \App\Models\Deduction::where('status', 'approved')->count() }}
-                                        </h2>
-                                        <a href="{{ route('deductions.index', ['status' => 'approved']) }}" class="text-success">
-                                            View Approved →
-                                        </a>
-                                    </div>
-                                    <div class="avatar bg-light-success">
-                                        <div class="avatar-content">
-                                            <i data-feather="check-circle"></i>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {{-- Total Amount --}}
-                    <div class="col-xl-3 col-md-6 col-12">
-                        <div class="card">
-                            <div class="card-body">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <div>
-                                        <h6 class="text-muted mb-0">Total Amount</h6>
-                                        <h2 class="fw-bolder mb-1 text-info">
-                                            ₦{{ number_format(\App\Models\Deduction::sum('amount'), 2) }}
-                                        </h2>
-                                        <a href="{{ route('reports.index') }}" class="text-info">
-                                            View Reports →
-                                        </a>
-                                    </div>
-                                    <div class="avatar bg-light-info">
-                                        <div class="avatar-content">
-                                            <i data-feather="dollar-sign"></i>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {{-- Applied to Payroll --}}
-                    <div class="col-xl-3 col-md-6 col-12">
-                        <div class="card">
-                            <div class="card-body">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <div>
-                                        <h6 class="text-muted mb-0">Applied to Payroll</h6>
-                                        <h2 class="fw-bolder mb-1 text-primary">
-                                            {{ \App\Models\Deduction::where('status', 'applied')->count() }}
-                                        </h2>
-                                        <a href="{{ route('deductions.index', ['status' => 'applied']) }}" class="text-primary">
-                                            View Applied →
-                                        </a>
-                                    </div>
-                                    <div class="avatar bg-light-primary">
-                                        <div class="avatar-content">
-                                            <i data-feather="check-square"></i>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {{-- Soft Delete Logs --}}
-                    <div class="col-xl-3 col-md-6 col-12">
-                        <div class="card">
-                            <div class="card-body">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <div>
-                                        <h6 class="text-muted mb-0">Soft Deleted</h6>
-                                        <h2 class="fw-bolder mb-1 text-danger">
-                                            {{ \App\Models\SoftDeleteLog::count() }}
-                                        </h2>
-                                        <a href="{{ route('soft-delete-logs.index') }}" class="text-danger">
-                                            View Logs →
-                                        </a>
-                                    </div>
-                                    <div class="avatar bg-light-danger">
-                                        <div class="avatar-content">
-                                            <i data-feather="trash-2"></i>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {{-- Total Users --}}
-                    <div class="col-xl-3 col-md-6 col-12">
-                        <div class="card">
-                            <div class="card-body">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <div>
-                                        <h6 class="text-muted mb-0">Total Users</h6>
-                                        <h2 class="fw-bolder mb-1">
-                                            {{ \App\Models\User::count() }}
-                                        </h2>
-                                        <a href="{{ route('superadmin.users.index') }}" class="text-primary">
-                                            Manage Users →
-                                        </a>
-                                    </div>
-                                    <div class="avatar bg-light-primary">
-                                        <div class="avatar-content">
-                                            <i data-feather="users"></i>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {{-- Pending Users --}}
-                    <div class="col-xl-3 col-md-6 col-12">
-                        <div class="card">
-                            <div class="card-body">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <div>
-                                        <h6 class="text-muted mb-0">Pending Users</h6>
-                                        <h2 class="fw-bolder mb-1 text-warning">
-                                            {{ \App\Models\User::where('is_approved', false)->count() }}
-                                        </h2>
-                                        <a href="{{ route('superadmin.users.index') }}" class="text-warning">
-                                            Approve Users →
-                                        </a>
-                                    </div>
-                                    <div class="avatar bg-light-warning">
-                                        <div class="avatar-content">
-                                            <i data-feather="user-x"></i>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
+                    @include('dashboards.partials.stat-card', [
+                        'title' => 'Total Deductions', 'value' => \App\Models\Deduction::count(),
+                        'link' => route('deductions.index'), 'linkText' => 'View All',
+                        'color' => 'primary', 'icon' => 'file-text',
+                    ])
+                    @include('dashboards.partials.stat-card', [
+                        'title' => 'Pending', 'value' => \App\Models\Deduction::where('status', 'pending')->count(),
+                        'link' => route('deductions.index', ['status' => 'pending']), 'linkText' => 'Review Pending',
+                        'color' => 'warning', 'icon' => 'clock',
+                    ])
+                    @include('dashboards.partials.stat-card', [
+                        'title' => 'Approved', 'value' => \App\Models\Deduction::where('status', 'approved')->count(),
+                        'link' => route('deductions.index', ['status' => 'approved']), 'linkText' => 'View Approved',
+                        'color' => 'success', 'icon' => 'check-circle',
+                    ])
+                    @include('dashboards.partials.stat-card', [
+                        'title' => 'Total Amount', 'value' => '₦' . number_format(\App\Models\Deduction::sum('amount'), 2),
+                        'link' => route('reports.index'), 'linkText' => 'View Reports',
+                        'color' => 'info', 'icon' => 'dollar-sign',
+                    ])
+                    @include('dashboards.partials.stat-card', [
+                        'title' => 'Applied to Payroll', 'value' => \App\Models\Deduction::where('status', 'applied')->count(),
+                        'link' => route('deductions.index', ['status' => 'applied']), 'linkText' => 'View Applied',
+                        'color' => 'primary', 'icon' => 'check-square',
+                    ])
+                    @include('dashboards.partials.stat-card', [
+                        'title' => 'Audit Records', 'value' => \App\Models\DeductionAudit::count(),
+                        'link' => route('audits.index'), 'linkText' => 'View Audit Trail',
+                        'color' => 'warning', 'icon' => 'activity',
+                    ])
+                    @include('dashboards.partials.stat-card', [
+                        'title' => 'Soft Deleted', 'value' => \App\Models\SoftDeleteLog::count(),
+                        'link' => route('soft-delete-logs.index'), 'linkText' => 'View Logs',
+                        'color' => 'danger', 'icon' => 'trash-2',
+                    ])
+                    @include('dashboards.partials.stat-card', [
+                        'title' => 'Total Users', 'value' => \App\Models\User::count(),
+                        'link' => route('superadmin.users.index'), 'linkText' => 'Manage Users',
+                        'color' => 'primary', 'icon' => 'users',
+                    ])
+                    @include('dashboards.partials.stat-card', [
+                        'title' => 'Branches', 'value' => \App\Models\Branch::count(),
+                        'link' => route('branches.index'), 'linkText' => 'Manage Branches',
+                        'color' => 'secondary', 'icon' => 'map-pin',
+                    ])
                 </div>
 
-                {{-- Quick Access Section --}}
+                {{-- Log Management: visible only to users who pass the clear-logs gate --}}
+                @can('clear-logs')
+                <div class="row mt-3">
+                    <div class="col-12">
+                        <div class="card border-danger">
+                            <div class="card-header">
+                                <h5 class="card-title mb-0 text-danger">
+                                    <i data-feather="alert-triangle"></i> Log Management
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <p class="text-muted">
+                                    Only the Super Super Admin can clear logs. Clearing is permanent and cannot be undone.
+                                </p>
+                                <div class="row g-2">
+                                    <div class="col-md-6">
+                                        <form action="{{ route('audits.clear') }}" method="POST"
+                                              onsubmit="return confirm('Permanently clear ALL audit records? This cannot be undone.')">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="submit" class="btn btn-outline-danger w-100 py-2">
+                                                <i data-feather="trash"></i>
+                                                Clear All Audit Logs ({{ \App\Models\DeductionAudit::count() }})
+                                            </button>
+                                        </form>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <form action="{{ route('soft-delete-logs.clear') }}" method="POST"
+                                              onsubmit="return confirm('Permanently clear ALL soft delete logs? This cannot be undone.')">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="submit" class="btn btn-outline-danger w-100 py-2">
+                                                <i data-feather="trash"></i>
+                                                Clear All Soft Delete Logs ({{ \App\Models\SoftDeleteLog::count() }})
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+                                <small class="text-muted d-block mt-2">
+                                    To clear a single record, open the log page and use the delete button on that row.
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                @endcan
+
+                {{-- Quick Access --}}
                 <div class="row mt-3">
                     <div class="col-12">
                         <div class="card">
-                            <div class="card-header">
-                                <h5 class="card-title">Quick Access</h5>
-                            </div>
+                            <div class="card-header"><h5 class="card-title">Quick Access</h5></div>
                             <div class="card-body">
                                 <div class="row g-2">
                                     <div class="col-md-3 col-6">
@@ -286,9 +167,9 @@
                     </div>
                 </div>
 
+                @include('dashboards.partials.recent-deductions')
             </section>
         </div>
-
     </div>
 </div>
 @endsection

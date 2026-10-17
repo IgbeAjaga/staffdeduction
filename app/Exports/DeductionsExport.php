@@ -14,18 +14,18 @@ class DeductionsExport
 {
     protected array $filters;
 
+    protected const LAST_COL = 'T'; // 20 columns: A to T
+
     public function __construct(array $filters = [])
     {
         $this->filters = $filters;
     }
 
-    public function download(string $filename = null): StreamedResponse
+    public function download(?string $filename = null): StreamedResponse
     {
         $filename = $filename ?? 'deductions_report_' . now()->format('Y_m_d_His') . '.xlsx';
 
-        $spreadsheet = $this->build();
-
-        $writer = new Xlsx($spreadsheet);
+        $writer = new Xlsx($this->build());
 
         return response()->streamDownload(function () use ($writer) {
             $writer->save('php://output');
@@ -36,19 +36,17 @@ class DeductionsExport
 
     protected function build(): Spreadsheet
     {
+        $last = self::LAST_COL;
+
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setTitle('Deductions');
 
         // ===================== Title =====================
         $sheet->setCellValue('A1', 'STAFF DEDUCTION SYSTEM');
-        $sheet->mergeCells('A1:S1');
+        $sheet->mergeCells("A1:{$last}1");
         $sheet->getStyle('A1')->applyFromArray([
-            'font' => [
-                'bold' => true,
-                'size' => 18,
-                'color' => ['rgb' => '1F4E78'],
-            ],
+            'font' => ['bold' => true, 'size' => 18, 'color' => ['rgb' => '1F4E78']],
             'alignment' => [
                 'horizontal' => Alignment::HORIZONTAL_CENTER,
                 'vertical'   => Alignment::VERTICAL_CENTER,
@@ -57,54 +55,25 @@ class DeductionsExport
         $sheet->getRowDimension(1)->setRowHeight(30);
 
         $sheet->setCellValue('A2', 'DEDUCTIONS REPORT');
-        $sheet->mergeCells('A2:S2');
+        $sheet->mergeCells("A2:{$last}2");
         $sheet->getStyle('A2')->applyFromArray([
-            'font' => [
-                'bold' => true,
-                'size' => 13,
-                'color' => ['rgb' => '2E74B5'],
-            ],
-            'alignment' => [
-                'horizontal' => Alignment::HORIZONTAL_CENTER,
-            ],
+            'font' => ['bold' => true, 'size' => 13, 'color' => ['rgb' => '2E74B5']],
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
         ]);
         $sheet->getRowDimension(2)->setRowHeight(22);
 
         // ===================== Headings =====================
         $headings = [
-            'Deduction ID',
-            'Staff Name',
-            'Salary Number',
-            'Branch',
-            'Department',
-            'Job Title',
-            'Deduction Type',
-            'Reason',
-            'Amount',
-            'Category',
-            'Deduction Date',
-            'Effective Date',
-            'Status',
-            'Approved By',
-            'Approval Date',
-            'Applied Date',
-            'Created By',
-            'Created At',
-            'Remarks',
+            'Deduction ID', 'Staff Name', 'Salary Number', 'Branch', 'Section',
+            'Department', 'Job Title', 'Deduction Type', 'Reason', 'Amount',
+            'Category', 'Deduction Date', 'Effective Date', 'Status', 'Approved By',
+            'Approval Date', 'Applied Date', 'Created By', 'Created At', 'Remarks',
         ];
 
-        $col = 'A';
-        foreach ($headings as $heading) {
-            $sheet->setCellValue($col . '3', $heading);
-            $col++;
-        }
+        $sheet->fromArray($headings, null, 'A3');
 
-        // Style header row
-        $sheet->getStyle('A3:S3')->applyFromArray([
-            'font' => [
-                'bold'  => true,
-                'color' => ['rgb' => 'FFFFFF'],
-            ],
+        $sheet->getStyle("A3:{$last}3")->applyFromArray([
+            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
             'fill' => [
                 'fillType'   => Fill::FILL_SOLID,
                 'startColor' => ['rgb' => '1F4E78'],
@@ -121,73 +90,67 @@ class DeductionsExport
 
         $row = 4;
         foreach ($deductions as $deduction) {
-            $sheet->setCellValue('A' . $row, $deduction->deduction_id);
-            $sheet->setCellValue('B' . $row, $deduction->staff_name);
-            $sheet->setCellValue('C' . $row, $deduction->salary_number);
-            $sheet->setCellValue('D' . $row, $deduction->branch?->name);
-            $sheet->setCellValue('E' . $row, $deduction->department?->name);
-            $sheet->setCellValue('F' . $row, $deduction->jobTitle?->name);
-            $sheet->setCellValue('G' . $row, $deduction->deductionType?->name);
-            $sheet->setCellValue('H' . $row, $deduction->reason);
-            $sheet->setCellValue('I' . $row, (float) $deduction->amount);
-            $sheet->setCellValue('J' . $row, ucfirst($deduction->category));
-            $sheet->setCellValue('K' . $row, $deduction->deduction_date?->format('Y-m-d'));
-            $sheet->setCellValue('L' . $row, $deduction->effective_date?->format('Y-m-d'));
-            $sheet->setCellValue('M' . $row, ucfirst($deduction->status));
-            $sheet->setCellValue('N' . $row, $deduction->approved_by);
-            $sheet->setCellValue('O' . $row, $deduction->approval_date?->format('Y-m-d'));
-            $sheet->setCellValue('P' . $row, $deduction->applied_date?->format('Y-m-d'));
-            $sheet->setCellValue('Q' . $row, $deduction->creator?->name);
-            $sheet->setCellValue('R' . $row, $deduction->created_at?->format('Y-m-d H:i'));
-            $sheet->setCellValue('S' . $row, $deduction->remarks);
+            $sheet->fromArray([
+                $deduction->deduction_id,
+                $deduction->staff_name,
+                $deduction->salary_number,
+                $deduction->branch?->name,
+                $deduction->section?->name,
+                $deduction->department?->name,
+                $deduction->jobTitle?->name,
+                $deduction->deductionType?->name,
+                $deduction->reason,
+                (float) $deduction->amount,
+                ucfirst($deduction->category),
+                $deduction->deduction_date?->format('Y-m-d'),
+                $deduction->effective_date?->format('Y-m-d'),
+                ucfirst($deduction->status),
+                $deduction->approved_by,
+                $deduction->approval_date?->format('Y-m-d'),
+                $deduction->applied_date?->format('Y-m-d'),
+                $deduction->creator?->name,
+                $deduction->created_at?->format('Y-m-d H:i'),
+                $deduction->remarks,
+            ], null, 'A' . $row);
 
             $row++;
         }
 
         $lastDataRow = $row - 1;
 
-        // Format Amount column
-        $sheet->getStyle('I4:I' . $lastDataRow)
-            ->getNumberFormat()
-            ->setFormatCode('#,##0.00');
+        // Amount column is J
+        if ($lastDataRow >= 4) {
+            $sheet->getStyle('J4:J' . $lastDataRow)
+                ->getNumberFormat()->setFormatCode('#,##0.00');
+        }
 
         // ===================== Totals Row =====================
-        $sheet->setCellValue('A' . $row, '');
         $sheet->setCellValue('B' . $row, 'TOTAL');
-        $sheet->setCellValue('I' . $row, $deductions->sum('amount'));
+        $sheet->setCellValue('J' . $row, $deductions->sum('amount'));
 
-        $sheet->getStyle('A' . $row . ':S' . $row)->applyFromArray([
+        $sheet->getStyle("A{$row}:{$last}{$row}")->applyFromArray([
             'font' => ['bold' => true],
             'fill' => [
                 'fillType'   => Fill::FILL_SOLID,
                 'startColor' => ['rgb' => 'D9EAD3'],
             ],
         ]);
-
-        $sheet->getStyle('I' . $row)
-            ->getNumberFormat()
-            ->setFormatCode('#,##0.00');
+        $sheet->getStyle('J' . $row)
+            ->getNumberFormat()->setFormatCode('#,##0.00');
 
         // ===================== Styling =====================
-        // Borders
-        $sheet->getStyle('A1:S' . $row)->applyFromArray([
+        $sheet->getStyle("A1:{$last}{$row}")->applyFromArray([
             'borders' => [
-                'allBorders' => [
-                    'borderStyle' => Border::BORDER_THIN,
-                ],
+                'allBorders' => ['borderStyle' => Border::BORDER_THIN],
             ],
         ]);
 
-        // Auto size columns
-        foreach (range('A', 'S') as $column) {
+        foreach (range('A', $last) as $column) {
             $sheet->getColumnDimension($column)->setAutoSize(true);
         }
 
-        // Freeze panes (below title + header)
         $sheet->freezePane('A4');
-
-        // Auto filter
-        $sheet->setAutoFilter('A3:S' . $lastDataRow);
+        $sheet->setAutoFilter("A3:{$last}" . max($lastDataRow, 3));
 
         return $spreadsheet;
     }
@@ -195,28 +158,15 @@ class DeductionsExport
     protected function getData()
     {
         $query = Deduction::with([
-            'branch',
-            'department',
-            'jobTitle',
-            'deductionType',
-            'creator',
+            'branch', 'section', 'department', 'jobTitle', 'deductionType', 'creator',
         ])->latest();
 
-        if (!empty($this->filters['branch_id'])) {
-            $query->where('branch_id', $this->filters['branch_id']);
+        foreach (['branch_id', 'section_id', 'department_id', 'deduction_type_id', 'status', 'category'] as $field) {
+            if (!empty($this->filters[$field])) {
+                $query->where($field, $this->filters[$field]);
+            }
         }
-        if (!empty($this->filters['department_id'])) {
-            $query->where('department_id', $this->filters['department_id']);
-        }
-        if (!empty($this->filters['deduction_type_id'])) {
-            $query->where('deduction_type_id', $this->filters['deduction_type_id']);
-        }
-        if (!empty($this->filters['status'])) {
-            $query->where('status', $this->filters['status']);
-        }
-        if (!empty($this->filters['category'])) {
-            $query->where('category', $this->filters['category']);
-        }
+
         if (!empty($this->filters['date_from']) && !empty($this->filters['date_to'])) {
             $query->whereBetween('deduction_date', [
                 $this->filters['date_from'],

@@ -17,6 +17,7 @@ class StoreDeductionRequest extends FormRequest
         return [
             // Staff Information
             'branch_id'         => ['required', 'exists:branches,id'],
+            'section_id'         => ['required', 'exists:sections,id'],
             'staff_name'        => ['required', 'string', 'max:255'],
             'salary_number'     => ['required', 'string', 'max:100'],
             'department_id'     => ['required', 'exists:departments,id'],
@@ -48,6 +49,7 @@ class StoreDeductionRequest extends FormRequest
     {
         return [
             'branch_id.required'              => 'Please select a branch.',
+            'section_id.required'              => 'Please select a section.',
             'staff_name.required'             => 'Staff name is required.',
             'salary_number.required'          => 'Salary number is required.',
             'department_id.required'          => 'Please select a department.',
@@ -76,6 +78,7 @@ class StoreDeductionRequest extends FormRequest
     {
         return [
             'branch_id'         => 'branch',
+            'section_id'         => 'section',
             'department_id'     => 'department',
             'job_title_id'      => 'job title',
             'deduction_type_id' => 'deduction type',

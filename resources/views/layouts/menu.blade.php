@@ -1,12 +1,4 @@
-@php
-    $role = auth()->user()->role ?? 'user';
-    $isAdmin = in_array($role, ['admin', 'superadmin'], true);
-    $isSuperAdmin = $role === 'superadmin';
-@endphp
-
-<!-- ===================================================== -->
-<!-- DASHBOARD -->
-<!-- ===================================================== -->
+{{-- Dashboard --}}
 <li class="{{ Request::is('dashboard*') ? 'active' : '' }} nav-item">
     <a class="d-flex align-items-center" href="{{ route('dashboard') }}">
         <i data-feather="home"></i>
@@ -14,23 +6,21 @@
     </a>
 </li>
 
-<!-- ===================================================== -->
-<!-- DEDUCTION MANAGEMENT (all approved users) -->
-<!-- ===================================================== -->
+{{-- ===================================================== --}}
+{{-- DEDUCTIONS --}}
+{{-- ===================================================== --}}
 <li class="navigation-header">
-    <span>DEDUCTION MANAGEMENT</span>
+    <span>DEDUCTIONS</span>
     <i data-feather="more-horizontal"></i>
 </li>
 
-<!-- All Deductions (search, filter, export, print) -->
-<li class="{{ Request::is('deductions') || (Request::is('deductions/*') && ! Request::is('deductions/create')) ? 'active' : '' }} nav-item">
+<li class="{{ Request::is('deductions*') ? 'active' : '' }} nav-item">
     <a class="d-flex align-items-center" href="{{ route('deductions.index') }}">
         <i data-feather="file-text"></i>
         <span class="menu-title text-truncate">All Deductions</span>
     </a>
 </li>
 
-<!-- New Deduction -->
 <li class="{{ Request::is('deductions/create') ? 'active' : '' }} nav-item">
     <a class="d-flex align-items-center" href="{{ route('deductions.create') }}">
         <i data-feather="plus-circle"></i>
@@ -38,99 +28,91 @@
     </a>
 </li>
 
-@if ($isAdmin)
+<li class="{{ Request::is('reports*') ? 'active' : '' }} nav-item">
+    <a class="d-flex align-items-center" href="{{ route('reports.index') }}">
+        <i data-feather="bar-chart-2"></i>
+        <span class="menu-title text-truncate">Reports</span>
+    </a>
+</li>
 
-    <!-- Reports -->
-    <li class="{{ Request::is('reports*') ? 'active' : '' }} nav-item">
-        <a class="d-flex align-items-center" href="{{ route('reports.index') }}">
-            <i data-feather="bar-chart-2"></i>
-            <span class="menu-title text-truncate">Reports</span>
-        </a>
-    </li>
+{{-- ===================================================== --}}
+{{-- MASTER DATA --}}
+{{-- ===================================================== --}}
+<li class="navigation-header">
+    <span>MASTER DATA</span>
+    <i data-feather="more-horizontal"></i>
+</li>
 
-    <!-- ===================================================== -->
-    <!-- MASTER DATA (admin & superadmin) -->
-    <!-- ===================================================== -->
-    <li class="navigation-header">
-        <span>MASTER DATA</span>
-        <i data-feather="more-horizontal"></i>
-    </li>
+<li class="{{ Request::is('branches*') ? 'active' : '' }} nav-item">
+    <a class="d-flex align-items-center" href="{{ route('branches.index') }}">
+        <i data-feather="map-pin"></i>
+        <span class="menu-title text-truncate">Branches</span>
+    </a>
+</li>
 
-    <li class="nav-item has-sub {{ Request::is('branches*') || Request::is('departments*') || Request::is('job-titles*') || Request::is('deduction-types*') ? 'open' : '' }}">
-        <a class="d-flex align-items-center" href="#">
-            <i data-feather="database"></i>
-            <span class="menu-title text-truncate">Setup Tables</span>
-            <span class="badge badge-light-warning rounded-pill ms-auto me-1">4</span>
-        </a>
-        <ul class="menu-content">
-            <li class="{{ Request::is('branches*') ? 'active' : '' }}">
-                <a class="d-flex align-items-center" href="{{ route('branches.index') }}">
-                    <i data-feather="circle"></i>
-                    <span class="menu-item text-truncate">Branches</span>
-                </a>
-            </li>
-            <li class="{{ Request::is('departments*') ? 'active' : '' }}">
-                <a class="d-flex align-items-center" href="{{ route('departments.index') }}">
-                    <i data-feather="circle"></i>
-                    <span class="menu-item text-truncate">Departments</span>
-                </a>
-            </li>
-            <li class="{{ Request::is('job-titles*') ? 'active' : '' }}">
-                <a class="d-flex align-items-center" href="{{ route('job-titles.index') }}">
-                    <i data-feather="circle"></i>
-                    <span class="menu-item text-truncate">Job Titles</span>
-                </a>
-            </li>
-            <li class="{{ Request::is('deduction-types*') ? 'active' : '' }}">
-                <a class="d-flex align-items-center" href="{{ route('deduction-types.index') }}">
-                    <i data-feather="circle"></i>
-                    <span class="menu-item text-truncate">Deduction Types</span>
-                </a>
-            </li>
-        </ul>
-    </li>
+<li class="{{ Request::is('sections*') ? 'active' : '' }} nav-item">
+    <a class="d-flex align-items-center" href="{{ route('sections.index') }}">
+        <i data-feather="grid"></i>
+        <span class="menu-title text-truncate">Sections</span>
+    </a>
+</li>
 
-    <!-- ===================================================== -->
-    <!-- USER MANAGEMENT (admin: users only, superadmin: everyone) -->
-    <!-- ===================================================== -->
-    <li class="navigation-header">
-        <span>USER MANAGEMENT</span>
-        <i data-feather="more-horizontal"></i>
-    </li>
+<li class="{{ Request::is('departments*') ? 'active' : '' }} nav-item">
+    <a class="d-flex align-items-center" href="{{ route('departments.index') }}">
+        <i data-feather="briefcase"></i>
+        <span class="menu-title text-truncate">Departments</span>
+    </a>
+</li>
 
-    <li class="{{ Request::is('users*') ? 'active' : '' }} nav-item">
-        <a class="d-flex align-items-center" href="{{ route('users.index') }}">
-            <i data-feather="users"></i>
-            <span class="menu-title text-truncate">User Approvals</span>
-        </a>
-    </li>
+<li class="{{ Request::is('job-titles*') ? 'active' : '' }} nav-item">
+    <a class="d-flex align-items-center" href="{{ route('job-titles.index') }}">
+        <i data-feather="award"></i>
+        <span class="menu-title text-truncate">Job Titles</span>
+    </a>
+</li>
 
-@endif
+<li class="{{ Request::is('deduction-types*') ? 'active' : '' }} nav-item">
+    <a class="d-flex align-items-center" href="{{ route('deduction-types.index') }}">
+        <i data-feather="tag"></i>
+        <span class="menu-title text-truncate">Deduction Types</span>
+    </a>
+</li>
 
-@if ($isSuperAdmin)
+{{-- ===================================================== --}}
+{{-- LOGS (Superadmin only) --}}
+{{-- ===================================================== --}}
+@if(auth()->user()->role === 'superadmin' || auth()->user()->role === 'supersuperadmin')
 
-    <!-- ===================================================== -->
-    <!-- LOGS (superadmin only) -->
-    <!-- ===================================================== -->
-    <li class="navigation-header">
-        <span>LOGS</span>
-        <i data-feather="more-horizontal"></i>
-    </li>
+<li class="navigation-header">
+    <span>LOGS & AUDIT</span>
+    <i data-feather="more-horizontal"></i>
+</li>
 
-    <!-- Audit trail of every change -->
-    <li class="{{ Request::is('audit-logs*') ? 'active' : '' }} nav-item">
-        <a class="d-flex align-items-center" href="{{ route('audit-logs.index') }}">
-            <i data-feather="shield"></i>
-            <span class="menu-title text-truncate">Audit Trail</span>
-        </a>
-    </li>
+<li class="{{ Request::is('audits*') ? 'active' : '' }} nav-item">
+    <a class="d-flex align-items-center" href="{{ route('audits.index') }}">
+        <i data-feather="activity"></i>
+        <span class="menu-title text-truncate">Audit Trails</span>
+    </a>
+</li>
 
-    <!-- Deleted records log -->
-    <li class="{{ Request::is('soft-delete-logs*') ? 'active' : '' }} nav-item">
-        <a class="d-flex align-items-center" href="{{ route('soft-delete-logs.index') }}">
-            <i data-feather="trash-2"></i>
-            <span class="menu-title text-truncate">Deletion Log</span>
-        </a>
-    </li>
+<li class="{{ Request::is('soft-delete-logs*') ? 'active' : '' }} nav-item">
+    <a class="d-flex align-items-center" href="{{ route('soft-delete-logs.index') }}">
+        <i data-feather="trash-2"></i>
+        <span class="menu-title text-truncate">Soft Delete Logs</span>
+    </a>
+</li>
+
+{{-- User Management --}}
+<li class="navigation-header">
+    <span>USER MANAGEMENT</span>
+    <i data-feather="more-horizontal"></i>
+</li>
+
+<li class="{{ Request::is('superadmin/users*') ? 'active' : '' }} nav-item">
+    <a class="d-flex align-items-center" href="{{ route('superadmin.users.index') }}">
+        <i data-feather="users"></i>
+        <span class="menu-title text-truncate">User Approvals</span>
+    </a>
+</li>
 
 @endif

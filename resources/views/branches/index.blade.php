@@ -1,58 +1,110 @@
-<x-layouts.app>
-    <div class="space-y-6">
-        <div class="flex justify-between items-center">
-            <h1 class="text-2xl font-bold text-zinc-900 dark:text-white">Branches</h1>
-            <a href="{{ route('branches.create') }}" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm">+ New Branch</a>
+@extends('layouts.app')
+
+@section('title', 'Branches')
+@section('page-title', 'Branches')
+
+@section('content')
+<div class="app-content content">
+    <div class="content-overlay"></div>
+    <div class="header-navbar-shadow"></div>
+
+    <div class="content-wrapper container-xxl p-0">
+
+        <div class="content-header row mb-2">
+            <div class="content-header-left col-md-9 col-12">
+                <div class="row breadcrumbs-top">
+                    <div class="col-12">
+                        <h2 class="content-header-title float-start mb-0">Branches</h2>
+                        <div class="breadcrumb-wrapper">
+                            <ol class="breadcrumb">
+                                <li class="breadcrumb-item"><a href="{{ route('dashboard') }}">Dashboard</a></li>
+                                <li class="breadcrumb-item active">Branches</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="content-header-right col-md-3 col-12 text-end">
+                <a href="{{ route('branches.create') }}" class="btn btn-primary btn-sm">
+                    <i data-feather="plus"></i> New Branch
+                </a>
+            </div>
         </div>
 
-        <div class="bg-white dark:bg-zinc-900 rounded-xl shadow overflow-hidden">
-            <table class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-700">
-                <thead class="bg-zinc-50 dark:bg-zinc-800">
-                    <tr>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-zinc-500 uppercase">Name</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-zinc-500 uppercase">Status</th>
-                        <th class="px-4 py-3 text-right text-xs font-medium text-zinc-500 uppercase">Actions</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
-                    @forelse($branches as $branch)
-                        <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
-                            <td class="px-4 py-3 font-medium dark:text-white">
-                                {{ $branch->name }}
-                                @if($branch->trashed())
-                                    <span class="ml-2 text-xs text-red-500">(Deleted)</span>
-                                @endif
-                            </td>
-                            <td class="px-4 py-3">
-                                <span class="px-2 py-1 text-xs rounded-full {{ $branch->is_active ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 'bg-zinc-100 text-zinc-600' }}">
-                                    {{ $branch->is_active ? 'Active' : 'Inactive' }}
-                                </span>
-                            </td>
-                            <td class="px-4 py-3 text-right space-x-2">
-                                @if($branch->trashed())
-                                    <form action="{{ route('branches.restore', $branch->id) }}" method="POST" class="inline">
-                                        @csrf
-                                        <button class="text-green-600 text-sm">Restore</button>
-                                    </form>
-                                @else
-                                    <a href="{{ route('branches.edit', $branch) }}" class="text-blue-600 text-sm">Edit</a>
-                                    <form action="{{ route('branches.destroy', $branch) }}" method="POST" class="inline" onsubmit="return confirm('Delete this branch?')">
-                                        @csrf @method('DELETE')
-                                        <button class="text-red-600 text-sm">Delete</button>
-                                    </form>
-                                @endif
-                            </td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="3" class="px-4 py-8 text-center text-zinc-500">No branches found.</td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
-            @if($branches->hasPages())
-                <div class="px-4 py-3 border-t dark:border-zinc-700">{{ $branches->links() }}</div>
-            @endif
+        @if(session('success'))
+            <div class="alert alert-success alert-dismissible fade show">
+                {{ session('success') }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        @endif
+
+        <div class="card">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bordered table-striped align-middle">
+                        <thead class="table-dark">
+                            <tr>
+                                <th width="60">#</th>
+                                <th>Name</th>
+                                <th>Status</th>
+                                <th width="200">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse($branches as $branch)
+                                <tr>
+                                    <td>
+                                        @if(method_exists($branches, 'currentPage'))
+                                            {{ $loop->iteration + ($branches->currentPage() - 1) * $branches->perPage() }}
+                                        @else
+                                            {{ $loop->iteration }}
+                                        @endif
+                                    </td>
+                                    <td>
+                                        {{ $branch->name }}
+                                        @if(method_exists($branch, 'trashed') && $branch->trashed())
+                                            <span class="badge bg-danger ms-1">Deleted</span>
+                                        @endif
+                                    </td>
+                                    <td>
+                                        <span class="badge {{ $branch->is_active ? 'bg-success' : 'bg-secondary' }}">
+                                            {{ $branch->is_active ? 'Active' : 'Inactive' }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        @if(method_exists($branch, 'trashed') && $branch->trashed())
+                                            <form action="{{ route('branches.restore', $branch->id) }}" method="POST" class="d-inline">
+                                                @csrf
+                                                <button type="submit" class="btn btn-sm btn-success">Restore</button>
+                                            </form>
+                                        @else
+                                            <a href="{{ route('branches.edit', $branch) }}" class="btn btn-sm btn-dark">Edit</a>
+                                            <form action="{{ route('branches.destroy', $branch) }}" method="POST" class="d-inline"
+                                                  onsubmit="return confirm('Delete this branch?')">
+                                                @csrf
+                                                @method('DELETE')
+                                                <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                                            </form>
+                                        @endif
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="4" class="text-center text-muted py-4">No branches found.</td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+
+                    @if(method_exists($branches, 'links'))
+                        <div class="mt-3">
+                            {{ $branches->links('pagination::bootstrap-5') }}
+                        </div>
+                    @endif
+                </div>
+            </div>
         </div>
+
     </div>
-</x-layouts.app>
+</div>
+@endsection

@@ -9,7 +9,7 @@
     <meta name="keywords" content="Mobile APP">
     <meta name="author" content="Team June">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>{{('Wholesale Cashier - Admin')}}</title>
+    <title>{{('Salary deduction - Admin')}}</title>
     @if(('website_favicon')!='')
     <link rel="icon" type="image/x-icon" href="{{url('site-assets/images/website')}}" />
     @else
@@ -146,7 +146,7 @@
         color: #14a1a7;
         font-size: 1.6rem;
     ">
-        Cashier
+        Deduction
     </h2>
 </a>
 

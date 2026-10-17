@@ -1,38 +1,74 @@
-<x-layouts.app>
-    <div class="max-w-4xl mx-auto space-y-6">
-        <div class="flex items-center justify-between">
-            <h1 class="text-2xl font-bold text-zinc-900 dark:text-white">Soft Delete Log Detail</h1>
-            <a href="{{ route('soft-delete-logs.index') }}" class="text-sm text-zinc-500 hover:text-zinc-700">← Back</a>
-        </div>
+@extends('layouts.app')
 
-        <div class="bg-white dark:bg-zinc-900 rounded-xl shadow p-6 space-y-4">
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                <div>
-                    <p class="text-zinc-500">Model</p>
-                    <p class="font-medium dark:text-white">{{ class_basename($softDeleteLog->model_type) }}</p>
-                </div>
-                <div>
-                    <p class="text-zinc-500">Record ID</p>
-                    <p class="font-medium dark:text-white">#{{ $softDeleteLog->model_id }}</p>
-                </div>
-                <div>
-                    <p class="text-zinc-500">Deleted By</p>
-                    <p class="font-medium dark:text-white">{{ $softDeleteLog->deleter?->name ?? 'Unknown' }}</p>
-                </div>
-                <div>
-                    <p class="text-zinc-500">Deleted At</p>
-                    <p class="font-medium dark:text-white">{{ $softDeleteLog->created_at->format('d M Y H:i:s') }}</p>
-                </div>
-                <div class="sm:col-span-2">
-                    <p class="text-zinc-500">Reason</p>
-                    <p class="font-medium dark:text-white">{{ $softDeleteLog->reason ?? '—' }}</p>
+@section('title', 'Soft Delete Log Detail')
+@section('page-title', 'Soft Delete Log Detail')
+
+@section('content')
+<div class="app-content content">
+    <div class="content-overlay"></div>
+    <div class="header-navbar-shadow"></div>
+
+    <div class="content-wrapper container-xxl p-0">
+
+        <div class="content-header row mb-2">
+            <div class="content-header-left col-md-9 col-12">
+                <div class="row breadcrumbs-top">
+                    <div class="col-12">
+                        <h2 class="content-header-title float-start mb-0">Soft Delete Log Detail</h2>
+                        <div class="breadcrumb-wrapper">
+                            <ol class="breadcrumb">
+                                <li class="breadcrumb-item"><a href="{{ route('dashboard') }}">Dashboard</a></li>
+                                <li class="breadcrumb-item"><a href="{{ route('soft-delete-logs.index') }}">Soft Delete Logs</a></li>
+                                <li class="breadcrumb-item active">Detail</li>
+                            </ol>
+                        </div>
+                    </div>
                 </div>
             </div>
-
-            <div class="pt-4 border-t border-zinc-200 dark:border-zinc-700">
-                <p class="text-sm font-medium mb-2 dark:text-white">Deleted Data Snapshot</p>
-                <pre class="bg-zinc-100 dark:bg-zinc-800 rounded-lg p-4 text-xs overflow-x-auto text-zinc-700 dark:text-zinc-300">{{ json_encode($softDeleteLog->data, JSON_PRETTY_PRINT) }}</pre>
+            <div class="content-header-right col-md-3 col-12 text-end">
+                <a href="{{ route('soft-delete-logs.index') }}" class="btn btn-outline-secondary btn-sm">Back</a>
             </div>
         </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h4 class="card-title mb-0">
+                    {{ class_basename($softDeleteLog->model_type) }} #{{ $softDeleteLog->model_id }}
+                </h4>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive mb-2">
+                    <table class="table table-bordered">
+                        <tbody>
+                            <tr>
+                                <th width="200">Model</th>
+                                <td>{{ class_basename($softDeleteLog->model_type) }}</td>
+                            </tr>
+                            <tr>
+                                <th>Record ID</th>
+                                <td>#{{ $softDeleteLog->model_id }}</td>
+                            </tr>
+                            <tr>
+                                <th>Deleted By</th>
+                                <td>{{ $softDeleteLog->deleter?->name ?? 'Unknown' }}</td>
+                            </tr>
+                            <tr>
+                                <th>Deleted At</th>
+                                <td>{{ $softDeleteLog->created_at->format('d M Y h:i:s A') }}</td>
+                            </tr>
+                            <tr>
+                                <th>Reason</th>
+                                <td>{{ $softDeleteLog->reason ?? '—' }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h5 class="mb-1">Deleted Data Snapshot</h5>
+                <pre class="bg-light p-2 rounded" style="max-height: 400px; overflow: auto; font-size: 12px;">{{ json_encode($softDeleteLog->data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}</pre>
+            </div>
+        </div>
+
     </div>
-</x-layouts.app>
+</div>
+@endsection

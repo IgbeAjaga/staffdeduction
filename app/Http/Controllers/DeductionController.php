@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Deduction;
 use App\Models\Branch;
+use App\Models\Section;
 use App\Models\Department;
 use App\Models\JobTitle;
 use App\Models\DeductionType;
@@ -21,7 +22,9 @@ class DeductionController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Deduction::with(['branch', 'department', 'jobTitle', 'deductionType', 'creator'])
+        $this->authorize('viewAny', Deduction::class);
+
+        $query = Deduction::with(['branch', 'section', 'department', 'jobTitle', 'deductionType', 'creator'])
             ->latest();
 
         if ($request->filled('search')) {
@@ -37,6 +40,10 @@ class DeductionController extends Controller
 
         if ($request->filled('branch_id')) {
             $query->where('branch_id', $request->branch_id);
+        }
+
+        if ($request->filled('section_id')) {
+            $query->where('section_id', $request->section_id);
         }
 
         if ($request->filled('department_id')) {
@@ -56,14 +63,18 @@ class DeductionController extends Controller
         return view('deductions.index', [
             'deductions'  => $deductions,
             'branches'    => Branch::where('is_active', true)->orderBy('name')->get(),
+             'sections'    => Section::where('is_active', true)->orderBy('name')->get(),
             'departments' => Department::where('is_active', true)->orderBy('name')->get(),
         ]);
     }
 
     public function create()
     {
+        $this->authorize('create', Deduction::class);
+
         return view('deductions.create', [
             'branches'       => Branch::where('is_active', true)->orderBy('name')->get(),
+            'sections'       => Section::where('is_active', true)->orderBy('name')->get(),
             'departments'    => Department::where('is_active', true)->orderBy('name')->get(),
             'jobTitles'      => JobTitle::where('is_active', true)->orderBy('name')->get(),
             'deductionTypes' => DeductionType::where('is_active', true)->orderBy('name')->get(),
@@ -125,8 +136,11 @@ class DeductionController extends Controller
 
     public function show(Deduction $deduction)
     {
+        $this->authorize('view', $deduction);
+
         $deduction->load([
             'branch',
+            'section',
             'department',
             'jobTitle',
             'deductionType',
@@ -145,6 +159,7 @@ class DeductionController extends Controller
         return view('deductions.edit', [
             'deduction'      => $deduction->load('installments'),
             'branches'       => Branch::where('is_active', true)->orderBy('name')->get(),
+            'sections'       => Section::where('is_active', true)->orderBy('name')->get(),
             'departments'    => Department::where('is_active', true)->orderBy('name')->get(),
             'jobTitles'      => JobTitle::where('is_active', true)->orderBy('name')->get(),
             'deductionTypes' => DeductionType::where('is_active', true)->orderBy('name')->get(),
@@ -313,4 +328,17 @@ class DeductionController extends Controller
 
         return back()->with('warning', 'Deduction cancelled.');
     }
+
+    public function document(Deduction $deduction)
+{
+    $this->authorize('view', $deduction);
+
+    abort_unless(
+        $deduction->supporting_document
+            && Storage::disk('public')->exists($deduction->supporting_document),
+        404
+    );
+
+    return Storage::disk('public')->response($deduction->supporting_document);
+}
 }

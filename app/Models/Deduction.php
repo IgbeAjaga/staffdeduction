@@ -14,6 +14,7 @@ class Deduction extends Model
     protected $fillable = [
         'deduction_id',
         'branch_id',
+        'section_id',
         'staff_name',
         'salary_number',
         'department_id',
@@ -68,6 +69,11 @@ class Deduction extends Model
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);
+    }
+
+    public function section(): BelongsTo
+    {
+        return $this->belongsTo(Section::class);
     }
 
     public function department(): BelongsTo

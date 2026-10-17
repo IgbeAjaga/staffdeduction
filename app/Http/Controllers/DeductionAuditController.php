@@ -5,38 +5,34 @@ namespace App\Http\Controllers;
 use App\Models\DeductionAudit;
 use App\Models\Deduction;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
 
 class DeductionAuditController extends Controller
 {
-    /**
-     * Display a listing of audit trails.
-     * Only superadmin should access this in production.
-     */
     public function index(Request $request)
     {
-        $query = DeductionAudit::with(['deduction', 'user'])
-            ->latest();
+        Gate::authorize('view-logs');
 
-        // Filter by deduction
+        $query = DeductionAudit::with(['deduction', 'user'])->latest();
+
         if ($request->filled('deduction_id')) {
             $query->where('deduction_id', $request->deduction_id);
         }
 
-        // Filter by action
         if ($request->filled('action')) {
             $query->where('action', $request->action);
         }
 
-        // Filter by user
         if ($request->filled('user_id')) {
             $query->where('user_id', $request->user_id);
         }
 
-        // Date range
         if ($request->filled('date_from') && $request->filled('date_to')) {
             $query->whereBetween('created_at', [
                 $request->date_from . ' 00:00:00',
-                $request->date_to . ' 23:59:59'
+                $request->date_to . ' 23:59:59',
             ]);
         }
 
@@ -45,21 +41,49 @@ class DeductionAuditController extends Controller
         return view('audits.index', compact('audits'));
     }
 
-    /**
-     * Show audit trail for a specific deduction.
-     */
     public function show(Deduction $deduction)
     {
-        $audits = $deduction->audits()
-            ->with('user')
-            ->latest()
-            ->get();
+        Gate::authorize('view-logs');
+
+        $audits = $deduction->audits()->with('user')->latest()->get();
 
         return view('audits.show', compact('deduction', 'audits'));
     }
 
     /**
-     * Soft-delete is not allowed for audits (they are permanent records).
-     * We only allow viewing.
+     * Clear a single audit record. Supersuperadmin only.
      */
+    public function destroy(DeductionAudit $audit)
+    {
+        Gate::authorize('clear-logs');
+
+        Log::warning('Audit log entry cleared', [
+            'user_id'  => Auth::id(),
+            'audit_id' => $audit->id,
+        ]);
+
+        $audit->delete();
+
+        return back()->with('success', 'Audit record cleared.');
+    }
+
+    /**
+     * Clear all audit records. Supersuperadmin only.
+     */
+    public function clearAll()
+    {
+        Gate::authorize('clear-logs');
+
+        $count = DeductionAudit::count();
+        DeductionAudit::query()->delete();
+
+        Log::warning('All audit logs cleared', [
+            'user_id' => Auth::id(),
+            'count'   => $count,
+        ]);
+
+        return redirect()
+            ->route('audits.index')
+            ->with('success', "{$count} audit record(s) cleared.");
+    }
 }

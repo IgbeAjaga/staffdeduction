@@ -11,6 +11,7 @@ use App\Http\Controllers\ReportController;
 use App\Http\Controllers\DeductionAuditController;
 use App\Http\Controllers\SoftDeleteLogController;
 use App\Http\Controllers\UserApprovalController;
+use App\Http\Controllers\SectionController;
 
 /*
 |--------------------------------------------------------------------------
@@ -21,6 +22,22 @@ use App\Http\Controllers\UserApprovalController;
 Route::get('/', function () {
     return view('welcome');
 })->name('welcome');
+
+Route::middleware(['auth', 'can:view-logs'])->group(function () {
+    Route::get('audits', [DeductionAuditController::class, 'index'])->name('audits.index');
+    Route::get('audits/{deduction}', [DeductionAuditController::class, 'show'])->name('audits.show');
+
+    Route::get('soft-delete-logs', [SoftDeleteLogController::class, 'index'])->name('soft-delete-logs.index');
+    Route::get('soft-delete-logs/{softDeleteLog}', [SoftDeleteLogController::class, 'show'])->name('soft-delete-logs.show');
+});
+
+Route::middleware(['auth', 'can:clear-logs'])->group(function () {
+    Route::delete('audits/clear', [DeductionAuditController::class, 'clearAll'])->name('audits.clear');
+    Route::delete('audits/{audit}', [DeductionAuditController::class, 'destroy'])->name('audits.destroy');
+
+    Route::delete('soft-delete-logs/clear', [SoftDeleteLogController::class, 'clearAll'])->name('soft-delete-logs.clear');
+    Route::delete('soft-delete-logs/{softDeleteLog}', [SoftDeleteLogController::class, 'destroy'])->name('soft-delete-logs.destroy');
+});
 
 Route::middleware(['auth', 'verified'])->group(function () {
 
@@ -44,6 +61,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('branches', BranchController::class);
     Route::post('branches/{id}/restore', [BranchController::class, 'restore'])
         ->name('branches.restore');
+
+        // Section
+Route::resource('sections', SectionController::class);
+Route::post('sections/{id}/restore', [SectionController::class, 'restore'])
+    ->name('sections.restore');
+
+    // Supporting document
+    Route::get('deductions/{deduction}/document', [DeductionController::class, 'document'])
+    ->name('deductions.document');
 
     // ==================== DEPARTMENTS ====================
     Route::resource('departments', DepartmentController::class);

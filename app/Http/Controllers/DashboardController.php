@@ -61,8 +61,7 @@ class DashboardController extends Controller
             ->take(8)
             ->get();
 
-        return view('dashboard', compact('stats', 'recentDeductions'));
-        // or return view('admin.dashboard', compact('stats', 'recentDeductions'));
+        return view('admin.dashboard', compact('stats', 'recentDeductions'));
     }
 
     /**
@@ -117,6 +116,6 @@ class DashboardController extends Controller
             ->take(10)
             ->get();
 
-        return view('super-superadmin.dashboard', compact('stats', 'recentDeductions'));
+        return view('supersuperadmin.dashboard', compact('stats', 'recentDeductions'));
     }
 }

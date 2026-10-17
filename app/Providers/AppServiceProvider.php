@@ -4,9 +4,13 @@ namespace App\Providers;
 
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Date;
+use App\Policies\DeductionPolicy;
+use App\Models\DeductionRequest;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
+use App\Models\User;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -24,6 +28,10 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->configureDefaults();
+        Gate::policy(DeductionRequest::class, DeductionPolicy::class);
+        Gate::define('view-logs',    fn (User $u) => in_array($u->role, ['superadmin', 'supersuperadmin'], true));
+Gate::define('manage-users', fn (User $u) => in_array($u->role, ['superadmin', 'supersuperadmin'], true));
+Gate::define('clear-logs',   fn (User $u) => $u->role === 'supersuperadmin');
     }
 
     /**

@@ -4,13 +4,14 @@ namespace App\Http\Controllers;
 
 use App\Models\Deduction;
 use App\Models\Branch;
+use App\Models\Section;
 use App\Models\Department;
 use App\Models\DeductionType;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\DeductionsExport;          // You will create this later
 use Barryvdh\DomPDF\Facade\Pdf;
+
 
 
 class ReportController extends Controller
@@ -20,11 +21,14 @@ class ReportController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Deduction::with(['branch', 'department', 'jobTitle', 'deductionType', 'creator']);
+        $query = Deduction::with(['branch', 'section', 'department', 'jobTitle', 'deductionType', 'creator']);
 
         // Filters
         if ($request->filled('branch_id')) {
             $query->where('branch_id', $request->branch_id);
+        }
+            if ($request->filled('section_id')) {
+            $query->where('section_id', $request->section_id);
         }
 
         if ($request->filled('department_id')) {
@@ -63,6 +67,7 @@ class ReportController extends Controller
             'deductions'     => $deductions,
             'stats'          => $stats,
             'branches'       => Branch::where('is_active', true)->orderBy('name')->get(),
+            'sections'       => Section::where('is_active', true)->orderBy('name')->get(),
             'departments'    => Department::where('is_active', true)->orderBy('name')->get(),
             'deductionTypes' => DeductionType::where('is_active', true)->orderBy('name')->get(),
         ]);
@@ -72,26 +77,29 @@ class ReportController extends Controller
      * Export to Excel
      */
     public function exportExcel(Request $request)
-    {
-        $filters = $request->only([
-            'branch_id', 'department_id', 'deduction_type_id',
-            'status', 'category', 'date_from', 'date_to'
-        ]);
+{
+    $filters = $request->only([
+        'branch_id', 'section_id', 'department_id', 'deduction_type_id',
+        'status', 'category', 'date_from', 'date_to',
+    ]);
 
-        $fileName = 'deductions_report_' . now()->format('Y_m_d_His') . '.xlsx';
+    $fileName = 'deductions_report_' . now()->format('Y_m_d_His') . '.xlsx';
 
-        return Excel::download(new DeductionsExport($filters), $fileName);
-    }
+    return (new DeductionsExport($filters))->download($fileName);
+}
 
     /**
      * Export to PDF
      */
     public function exportPdf(Request $request)
     {
-        $query = Deduction::with(['branch', 'department', 'jobTitle', 'deductionType', 'creator']);
+        $query = Deduction::with(['branch', 'section', 'department', 'jobTitle', 'deductionType', 'creator']);
 
         if ($request->filled('branch_id')) {
             $query->where('branch_id', $request->branch_id);
+        }
+         if ($request->filled('section_id')) {
+            $query->where('section_id', $request->section_id);
         }
         if ($request->filled('department_id')) {
             $query->where('department_id', $request->department_id);
@@ -119,11 +127,14 @@ class ReportController extends Controller
      */
     public function print(Request $request)
     {
-        $query = Deduction::with(['branch', 'department', 'jobTitle', 'deductionType']);
+        $query = Deduction::with(['branch', 'section', 'department', 'jobTitle', 'deductionType']);
 
         // Apply same filters as index
         if ($request->filled('branch_id')) {
             $query->where('branch_id', $request->branch_id);
+        }
+        if ($request->filled('section_id')) {
+            $query->where('section_id', $request->section_id);
         }
         if ($request->filled('status')) {
             $query->where('status', $request->status);

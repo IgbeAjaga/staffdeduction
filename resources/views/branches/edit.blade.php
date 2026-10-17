@@ -1,25 +1,90 @@
-{{-- edit.blade.php --}}
-<x-layouts.app>
-    <div class="max-w-lg mx-auto space-y-6">
-        <h1 class="text-2xl font-bold text-zinc-900 dark:text-white">Edit Branch</h1>
+@extends('layouts.app')
 
-        <form action="{{ route('branches.update', $branch) }}" method="POST" class="bg-white dark:bg-zinc-900 rounded-xl shadow p-6 space-y-4">
-            @csrf
-            @method('PUT')
-            <div>
-                <label class="block text-sm font-medium mb-1 dark:text-zinc-300">Name *</label>
-                <input type="text" name="name" value="{{ old('name', $branch->name) }}" required
-                       class="w-full rounded-lg border-zinc-300 dark:border-zinc-700 dark:bg-zinc-800 dark:text-white">
-                @error('name') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+@section('title', 'Edit Branch')
+@section('page-title', 'Edit Branch')
+
+@section('content')
+<div class="app-content content">
+    <div class="content-overlay"></div>
+    <div class="header-navbar-shadow"></div>
+
+    <div class="content-wrapper container-xxl p-0">
+
+        <div class="content-header row mb-2">
+            <div class="content-header-left col-md-9 col-12">
+                <div class="row breadcrumbs-top">
+                    <div class="col-12">
+                        <h2 class="content-header-title float-start mb-0">Edit Branch</h2>
+                        <div class="breadcrumb-wrapper">
+                            <ol class="breadcrumb">
+                                <li class="breadcrumb-item"><a href="{{ route('dashboard') }}">Dashboard</a></li>
+                                <li class="breadcrumb-item"><a href="{{ route('branches.index') }}">Branches</a></li>
+                                <li class="breadcrumb-item active">Edit</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div class="flex items-center gap-2">
-                <input type="checkbox" name="is_active" value="1" id="is_active" @checked(old('is_active', $branch->is_active)) class="rounded">
-                <label for="is_active" class="text-sm dark:text-zinc-300">Active</label>
+        </div>
+
+        <div class="content-body">
+            <div class="card">
+                <div class="card-body">
+
+                    @if($errors->any())
+                        <div class="alert alert-danger alert-dismissible fade show">
+                            <ul class="mb-0">
+                                @foreach($errors->all() as $error)
+                                    <li>{{ $error }}</li>
+                                @endforeach
+                            </ul>
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    @endif
+
+                    <form method="POST" action="{{ route('branches.update', $branch) }}">
+                        @csrf
+                        @method('PUT')
+
+                        <div class="row g-3">
+                            <div class="col-md-8">
+                                <label class="form-label">Name <span class="text-danger">*</span></label>
+                                <input type="text"
+                                       name="name"
+                                       value="{{ old('name', $branch->name) }}"
+                                       class="form-control @error('name') is-invalid @enderror"
+                                       placeholder="Enter branch name"
+                                       required>
+                                @error('name')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label d-block">Status</label>
+                                <div class="form-check form-switch mt-1">
+                                    <input type="hidden" name="is_active" value="0">
+                                    <input class="form-check-input"
+                                           type="checkbox"
+                                           name="is_active"
+                                           value="1"
+                                           id="is_active"
+                                           {{ old('is_active', $branch->is_active) ? 'checked' : '' }}>
+                                    <label class="form-check-label" for="is_active">Active</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mt-4 d-flex gap-2">
+                            <a href="{{ route('branches.index') }}" class="btn btn-secondary">Back</a>
+                            <button type="submit" class="btn btn-primary">Update Branch</button>
+                        </div>
+                    </form>
+
+                </div>
             </div>
-            <div class="flex justify-end gap-3">
-                <a href="{{ route('branches.index') }}" class="px-4 py-2 border rounded-lg text-sm">Cancel</a>
-                <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded-lg text-sm">Update</button>
-            </div>
-        </form>
+        </div>
+
     </div>
-</x-layouts.app>
+</div>
+@endsection

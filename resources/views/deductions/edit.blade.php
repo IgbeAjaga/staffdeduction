@@ -1,13 +1,57 @@
-<?php
+@extends('layouts.app')
 
-use Livewire\Component;
+@section('title', 'Edit Deduction')
+@section('page-title', 'Edit Deduction')
 
-new class extends Component
-{
-    //
-};
-?>
+@section('content')
+<div class="app-content content">
+    <div class="content-overlay"></div>
+    <div class="header-navbar-shadow"></div>
 
-<div>
-    {{-- Act only according to that maxim whereby you can, at the same time, will that it should become a universal law. - Immanuel Kant --}}
+    <div class="content-wrapper container-xxl p-0">
+
+        <div class="content-header row mb-2">
+            <div class="content-header-left col-md-9 col-12">
+                <div class="row breadcrumbs-top">
+                    <div class="col-12">
+                        <h2 class="content-header-title float-start mb-0">Edit Deduction</h2>
+                        <div class="breadcrumb-wrapper">
+                            <ol class="breadcrumb">
+                                <li class="breadcrumb-item"><a href="{{ route('dashboard') }}">Dashboard</a></li>
+                                <li class="breadcrumb-item"><a href="{{ route('deductions.index') }}">Deductions</a></li>
+                                <li class="breadcrumb-item active">Edit</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="content-body">
+            <div class="card">
+                <div class="card-body">
+
+                    @if($errors->any())
+                        <div class="alert alert-danger alert-dismissible fade show">
+                            <ul class="mb-0">
+                                @foreach($errors->all() as $error)
+                                    <li>{{ $error }}</li>
+                                @endforeach
+                            </ul>
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    @endif
+
+                    <form method="POST" action="{{ route('deductions.update', $deduction) }}" enctype="multipart/form-data">
+                        @csrf
+                        @method('PUT')
+                        @include('deductions._form', ['deduction' => $deduction])
+                    </form>
+
+                </div>
+            </div>
+        </div>
+
+    </div>
 </div>
+@endsection
