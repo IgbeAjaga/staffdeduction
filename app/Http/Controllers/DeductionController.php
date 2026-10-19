@@ -13,10 +13,12 @@ use App\Models\DeductionAudit;
 use App\Models\SoftDeleteLog;
 use App\Http\Requests\StoreDeductionRequest;
 use App\Http\Requests\UpdateDeductionRequest;
+use App\Http\Requests\StoreBulkDeductionRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class DeductionController extends Controller
 {
@@ -34,8 +36,13 @@ class DeductionController extends Controller
                   ->orWhere('staff_name', 'like', "%{$search}%")
                   ->orWhere('approved_by', 'like', "%{$search}%")
                   ->orWhere('salary_number', 'like', "%{$search}%")
+                  ->orWhere('group_id', 'like', "%{$search}%")
                   ->orWhere('amount', $search);
             });
+        }
+
+        if ($request->filled('group_id')) {
+            $query->where('group_id', $request->group_id);
         }
 
         if ($request->filled('branch_id')) {
@@ -63,7 +70,7 @@ class DeductionController extends Controller
         return view('deductions.index', [
             'deductions'  => $deductions,
             'branches'    => Branch::where('is_active', true)->orderBy('name')->get(),
-             'sections'    => Section::where('is_active', true)->orderBy('name')->get(),
+            'sections'    => Section::where('is_active', true)->orderBy('name')->get(),
             'departments' => Department::where('is_active', true)->orderBy('name')->get(),
         ]);
     }
@@ -97,7 +104,6 @@ class DeductionController extends Controller
 
             $deduction = Deduction::create($data);
 
-            // Handle installments
             if ($request->category === 'installment' && $request->has('installments')) {
                 foreach ($request->installments as $item) {
                     DeductionInstallment::create([
@@ -111,7 +117,6 @@ class DeductionController extends Controller
                 }
             }
 
-            // Audit Trail
             DeductionAudit::create([
                 'deduction_id' => $deduction->id,
                 'user_id'      => Auth::id(),
@@ -134,6 +139,176 @@ class DeductionController extends Controller
         }
     }
 
+    // ==================== BULK / GROUP DEDUCTION ====================
+
+    public function bulkCreate()
+    {
+        $this->authorize('create', Deduction::class);
+
+        return view('deductions.bulk-create', [
+            'branches'       => Branch::where('is_active', true)->orderBy('name')->get(),
+            'sections'       => Section::where('is_active', true)->orderBy('name')->get(),
+            'departments'    => Department::where('is_active', true)->orderBy('name')->get(),
+            'jobTitles'      => JobTitle::where('is_active', true)->orderBy('name')->get(),
+            'deductionTypes' => DeductionType::where('is_active', true)->orderBy('name')->get(),
+        ]);
+    }
+
+    public function bulkStore(StoreBulkDeductionRequest $request)
+    {
+        $this->authorize('create', Deduction::class);
+
+        DB::beginTransaction();
+
+        try {
+            $data    = $request->validated();
+            $groupId = 'GRP-' . strtoupper(Str::random(8));
+
+            $documentPath = null;
+            if ($request->hasFile('supporting_document')) {
+                $documentPath = $request->file('supporting_document')
+                    ->store('deductions', 'public');
+            }
+
+            $created = 0;
+
+            foreach ($data['staff'] as $staff) {
+    $deduction = Deduction::create([
+        'group_id'            => $groupId,
+        'branch_id'           => $data['branch_id'],
+        'section_id'          => $data['section_id'],          // shared
+        'department_id'       => $staff['department_id'],
+        'job_title_id'        => $staff['job_title_id'] ?? null, // optional
+        'deduction_type_id'   => $data['deduction_type_id'],
+        'staff_name'          => $staff['staff_name'],
+        'salary_number'       => $staff['salary_number'],
+        'amount'              => $staff['amount'],
+        'category'            => $data['category'],
+        'deduction_date'      => $data['deduction_date'],
+        'effective_date'      => $data['effective_date'],
+        'reason'              => $data['reason'],
+        'remarks'             => $data['remarks'] ?? null,
+        'supporting_document' => $documentPath,
+        'status'              => 'pending',
+        'created_by'          => Auth::id(),
+    ]);
+
+                DeductionAudit::create([
+                    'deduction_id' => $deduction->id,
+                    'user_id'      => Auth::id(),
+                    'action'       => 'created',
+                    'new_values'   => $deduction->toArray(),
+                    'description'  => 'Created as part of group ' . $groupId,
+                ]);
+
+                $created++;
+            }
+
+            DB::commit();
+
+            return redirect()
+                ->route('deductions.index', ['group_id' => $groupId])
+                ->with('success', "{$created} deductions created successfully under group {$groupId}.");
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return back()
+                ->with('error', 'Failed to create bulk deductions: ' . $e->getMessage())
+                ->withInput();
+        }
+    }
+
+    public function groupApprove(Request $request, string $groupId)
+    {
+        $request->validate([
+            'approved_by' => ['required', 'string', 'max:255'],
+        ]);
+
+        $deductions = Deduction::where('group_id', $groupId)
+            ->where('status', 'pending')
+            ->get();
+
+        if ($deductions->isEmpty()) {
+            return back()->with('warning', 'No pending deductions found in this group.');
+        }
+
+        foreach ($deductions as $deduction) {
+            $this->authorize('approve', $deduction);
+
+            $deduction->update([
+                'status'        => 'approved',
+                'approved_by'   => $request->approved_by,
+                'approval_date' => now(),
+            ]);
+
+            DeductionAudit::create([
+                'deduction_id' => $deduction->id,
+                'user_id'      => Auth::id(),
+                'action'       => 'approved',
+                'description'  => 'Group approved by ' . $request->approved_by,
+            ]);
+        }
+
+        return back()->with('success', $deductions->count() . ' deductions in group approved.');
+    }
+
+    public function groupReject(Request $request, string $groupId)
+    {
+        $deductions = Deduction::where('group_id', $groupId)
+            ->where('status', 'pending')
+            ->get();
+
+        if ($deductions->isEmpty()) {
+            return back()->with('warning', 'No pending deductions found in this group.');
+        }
+
+        foreach ($deductions as $deduction) {
+            $this->authorize('approve', $deduction);
+
+            $deduction->update(['status' => 'rejected']);
+
+            DeductionAudit::create([
+                'deduction_id' => $deduction->id,
+                'user_id'      => Auth::id(),
+                'action'       => 'rejected',
+                'description'  => $request->reason ?? 'Group rejected',
+            ]);
+        }
+
+        return back()->with('warning', $deductions->count() . ' deductions in group rejected.');
+    }
+
+    public function groupApply(string $groupId)
+    {
+        $deductions = Deduction::where('group_id', $groupId)
+            ->where('status', 'approved')
+            ->get();
+
+        if ($deductions->isEmpty()) {
+            return back()->with('warning', 'No approved deductions found in this group.');
+        }
+
+        foreach ($deductions as $deduction) {
+            $this->authorize('apply', $deduction);
+
+            $deduction->update([
+                'status'       => 'applied',
+                'applied_date' => now(),
+            ]);
+
+            DeductionAudit::create([
+                'deduction_id' => $deduction->id,
+                'user_id'      => Auth::id(),
+                'action'       => 'applied',
+                'description'  => 'Group applied to payroll',
+            ]);
+        }
+
+        return back()->with('success', $deductions->count() . ' deductions in group applied to payroll.');
+    }
+
+    // ==================== SINGLE RECORD ====================
+
     public function show(Deduction $deduction)
     {
         $this->authorize('view', $deduction);
@@ -146,7 +321,7 @@ class DeductionController extends Controller
             'deductionType',
             'creator',
             'installments',
-            'audits.user'
+            'audits.user',
         ]);
 
         return view('deductions.show', compact('deduction'));
@@ -177,7 +352,6 @@ class DeductionController extends Controller
             $data = $request->validated();
 
             if ($request->hasFile('supporting_document')) {
-                // Delete old file if exists
                 if ($deduction->supporting_document) {
                     Storage::disk('public')->delete($deduction->supporting_document);
                 }
@@ -187,9 +361,8 @@ class DeductionController extends Controller
 
             $deduction->update($data);
 
-            // Sync installments
             if ($request->category === 'installment' && $request->has('installments')) {
-                $deduction->installments()->delete(); // simple approach
+                $deduction->installments()->delete();
 
                 foreach ($request->installments as $item) {
                     DeductionInstallment::create([
@@ -205,7 +378,6 @@ class DeductionController extends Controller
                 $deduction->installments()->delete();
             }
 
-            // Audit
             DeductionAudit::create([
                 'deduction_id' => $deduction->id,
                 'user_id'      => Auth::id(),
@@ -330,15 +502,15 @@ class DeductionController extends Controller
     }
 
     public function document(Deduction $deduction)
-{
-    $this->authorize('view', $deduction);
+    {
+        $this->authorize('view', $deduction);
 
-    abort_unless(
-        $deduction->supporting_document
-            && Storage::disk('public')->exists($deduction->supporting_document),
-        404
-    );
+        abort_unless(
+            $deduction->supporting_document
+                && Storage::disk('public')->exists($deduction->supporting_document),
+            404
+        );
 
-    return Storage::disk('public')->response($deduction->supporting_document);
-}
+        return Storage::disk('public')->response($deduction->supporting_document);
+    }
 }

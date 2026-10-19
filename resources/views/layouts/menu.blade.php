@@ -28,10 +28,24 @@
     </a>
 </li>
 
+<li class="{{ Request::is('deductions/create') ? 'active' : '' }} nav-item">
+    <a class="d-flex align-items-center" href="{{ route('deductions.bulk.create') }}">
+        <i data-feather="plus-circle"></i>
+        <span class="menu-title text-truncate">Bulk Deduction</span>
+    </a>
+</li>
+
 <li class="{{ Request::is('reports*') ? 'active' : '' }} nav-item">
     <a class="d-flex align-items-center" href="{{ route('reports.index') }}">
         <i data-feather="bar-chart-2"></i>
         <span class="menu-title text-truncate">Reports</span>
+    </a>
+</li>
+
+<li class="{{ Request::is('reports/payroll-due*') ? 'active' : '' }} nav-item">
+    <a class="d-flex align-items-center" href="{{ route('reports.payroll-due') }}">
+        <i data-feather="dollar-sign"></i>
+        <span class="menu-title text-truncate">Payroll Due</span>
     </a>
 </li>
 

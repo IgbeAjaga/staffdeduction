@@ -100,11 +100,77 @@
         <div class="card">
             <div class="card-body">
                 <div class="table-responsive" style="max-height: 78vh; overflow: auto; border: 1px solid #dee2e6; border-radius: 6px;">
+                    @if(request('group_id'))
+    @php
+        $groupId = request('group_id');
+        $groupPending  = \App\Models\Deduction::where('group_id', $groupId)->where('status', 'pending')->count();
+        $groupApproved = \App\Models\Deduction::where('group_id', $groupId)->where('status', 'approved')->count();
+        $groupApplied  = \App\Models\Deduction::where('group_id', $groupId)->where('status', 'applied')->count();
+        $groupTotal    = \App\Models\Deduction::where('group_id', $groupId)->count();
+        $groupSum      = \App\Models\Deduction::where('group_id', $groupId)->sum('amount');
+    @endphp
+
+    <div class="card mb-2 border-primary">
+        <div class="card-body">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                <div>
+                    <h5 class="mb-50">
+                        Group: <code>{{ $groupId }}</code>
+                    </h5>
+                    <span class="me-1">{{ $groupTotal }} staff</span>
+                    <span class="me-1">• Total: <strong>₦{{ number_format($groupSum, 2) }}</strong></span>
+                    <span class="badge bg-light-warning text-warning">{{ $groupPending }} Pending</span>
+                    <span class="badge bg-light-success text-success">{{ $groupApproved }} Approved</span>
+                    <span class="badge bg-light-info text-info">{{ $groupApplied }} Applied</span>
+                </div>
+
+                <div class="d-flex flex-wrap gap-1 align-items-center">
+                    @if($groupPending > 0)
+                        {{-- Approve All --}}
+                        <form action="{{ route('deductions.group.approve', $groupId) }}" method="POST" class="d-flex gap-1">
+                            @csrf
+                            <input type="text"
+                                   name="approved_by"
+                                   class="form-control form-control-sm"
+                                   style="width: 180px;"
+                                   placeholder="Approved by (name + position)"
+                                   required>
+                            <button type="submit" class="btn btn-sm btn-success"
+                                    onclick="return confirm('Approve all {{ $groupPending }} pending deductions in this group?')">
+                                Approve All
+                            </button>
+                        </form>
+
+                        {{-- Reject All --}}
+                        <form action="{{ route('deductions.group.reject', $groupId) }}" method="POST"
+                              onsubmit="return confirm('Reject all pending in this group?')">
+                            @csrf
+                            <button type="submit" class="btn btn-sm btn-danger">Reject All</button>
+                        </form>
+                    @endif
+
+                    @if($groupApproved > 0)
+                        <form action="{{ route('deductions.group.apply', $groupId) }}" method="POST"
+                              onsubmit="return confirm('Apply all {{ $groupApproved }} approved deductions to payroll?')">
+                            @csrf
+                            <button type="submit" class="btn btn-sm btn-info">Apply All to Payroll</button>
+                        </form>
+                    @endif
+
+                    <a href="{{ route('deductions.index') }}" class="btn btn-sm btn-outline-secondary">
+                        Clear Group Filter
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+@endif
                     <table class="table table-bordered table-striped align-middle">
                         <thead class="table-dark text-nowrap" style="position: sticky; top: 0; z-index: 10;">
                             <tr>
                                 <th width="160">Actions</th>
                                 <th>#</th>
+                                <th>Bulk code</th>
                                 <th>Deduction ID</th>
                                 <th>Staff Name</th>
                                 <th>Salary No</th>
@@ -137,6 +203,16 @@
                                             {{ $loop->iteration }}
                                         @endif
                                     </td>
+                                    <td>
+    <code>{{ $deduction->deduction_id }}</code>
+    @if($deduction->group_id)
+        <br>
+        <a href="{{ route('deductions.index', ['group_id' => $deduction->group_id]) }}"
+           class="badge bg-light-primary text-primary text-decoration-none">
+            {{ $deduction->group_id }}
+        </a>
+    @endif
+</td>
                                     <td><code>{{ $deduction->deduction_id }}</code></td>
                                     <td>{{ $deduction->staff_name }}</td>
                                     <td>{{ $deduction->salary_number }}</td>

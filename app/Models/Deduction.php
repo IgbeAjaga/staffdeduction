@@ -34,6 +34,7 @@ class Deduction extends Model
         'approval_date',
         'applied_date',
         'remarks',
+        'group_id',
     ];
 
     protected $casts = [
@@ -105,4 +106,30 @@ class Deduction extends Model
     {
         return $this->hasMany(DeductionAudit::class);
     }
+    // Scope for a group
+public function scopeInGroup($query, string $groupId)
+{
+    return $query->where('group_id', $groupId);
+}
+
+public function isGrouped(): bool
+{
+    return !empty($this->group_id);
+}
+/** Remaining amount still to be deducted (installments not yet applied + one-time if not applied) */
+public function remainingAmount(): float
+{
+    if ($this->category === 'one_time') {
+        return $this->status === 'applied' ? 0 : (float) $this->amount;
+    }
+
+    return (float) $this->installments()
+        ->where('status', '!=', 'applied')
+        ->sum('amount');
+}
+
+public function totalAmount(): float
+{
+    return (float) $this->amount;
+}
 }

@@ -14,12 +14,15 @@ class DeductionInstallment extends Model
         'period_end',
         'amount',
         'is_edited',
+        'status',
+    'applied_at',
     ];
 
     protected $casts = [
         'amount'       => 'decimal:2',
         'period_start' => 'date',
         'period_end'   => 'date',
+        'applied_at'   => 'datetime',
         'is_edited'    => 'boolean',
     ];
 
@@ -27,4 +30,8 @@ class DeductionInstallment extends Model
     {
         return $this->belongsTo(Deduction::class);
     }
+    public function isApplied(): bool
+{
+    return $this->status === 'applied';
+}
 }

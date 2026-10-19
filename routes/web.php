@@ -101,6 +101,31 @@ Route::post('sections/{id}/restore', [SectionController::class, 'restore'])
     Route::get('soft-delete-logs/{softDeleteLog}', [SoftDeleteLogController::class, 'show'])->name('soft-delete-logs.show');
     Route::delete('soft-delete-logs/{softDeleteLog}', [SoftDeleteLogController::class, 'destroy'])->name('soft-delete-logs.destroy');
 
+    // bulk deduction
+    Route::get('deductions/bulk/create', [DeductionController::class, 'bulkCreate'])
+    ->name('deductions.bulk.create');
+Route::post('deductions/bulk', [DeductionController::class, 'bulkStore'])
+    ->name('deductions.bulk.store');
+
+Route::post('deductions/group/{groupId}/approve', [DeductionController::class, 'groupApprove'])
+    ->name('deductions.group.approve');
+Route::post('deductions/group/{groupId}/reject', [DeductionController::class, 'groupReject'])
+    ->name('deductions.group.reject');
+Route::post('deductions/group/{groupId}/apply', [DeductionController::class, 'groupApply'])
+    ->name('deductions.group.apply');
+
+    //Due Report
+    Route::get('reports/payroll-due', [ReportController::class, 'payrollDue'])
+    ->name('reports.payroll-due');
+Route::get('reports/payroll-due/export/excel', [ReportController::class, 'payrollDueExcel'])
+    ->name('reports.payroll-due.excel');
+Route::get('reports/payroll-due/export/pdf', [ReportController::class, 'payrollDuePdf'])
+    ->name('reports.payroll-due.pdf');
+Route::get('reports/payroll-due/print', [ReportController::class, 'payrollDuePrint'])
+    ->name('reports.payroll-due.print');
+    Route::post('reports/payroll-due/apply', [ReportController::class, 'payrollDueApply'])
+    ->name('reports.payroll-due.apply');
+
 });
 
 /*

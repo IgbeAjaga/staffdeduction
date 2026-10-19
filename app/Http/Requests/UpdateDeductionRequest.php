@@ -20,8 +20,8 @@ class UpdateDeductionRequest extends FormRequest
             'section_id'         => ['required', 'exists:sections,id'],
             'staff_name'        => ['required', 'string', 'max:255'],
             'salary_number'     => ['required', 'string', 'max:100'],
-            'department_id'     => ['required', 'exists:departments,id'],
-            'job_title_id'      => ['required', 'exists:job_titles,id'],
+            'department_id' => ['nullable', 'exists:departments,id'],
+            'job_title_id'  => ['nullable', 'exists:job_titles,id'],
             'deduction_type_id' => ['required', 'exists:deduction_types,id'],
 
             // Deduction Details

@@ -50,9 +50,9 @@
 
     {{-- Department --}}
     <div class="col-md-6">
-        <label class="form-label">Department <span class="text-danger">*</span></label>
-        <select name="department_id" class="form-select @error('department_id') is-invalid @enderror" required>
-            <option value="">Select Department</option>
+        <label class="form-label">Department</label>
+        <select name="department_id" class="form-select @error('department_id') is-invalid @enderror">
+            <option value="">— Optional —</option>
             @foreach($departments as $department)
                 <option value="{{ $department->id }}"
                     @selected(old('department_id', $deduction->department_id ?? '') == $department->id)>
@@ -65,9 +65,9 @@
 
     {{-- Job Title --}}
     <div class="col-md-6">
-        <label class="form-label">Job Title <span class="text-danger">*</span></label>
-        <select name="job_title_id" class="form-select @error('job_title_id') is-invalid @enderror" required>
-            <option value="">Select Job Title</option>
+        <label class="form-label">Job Title</label>
+        <select name="job_title_id" class="form-select @error('job_title_id') is-invalid @enderror">
+            <option value="">— Optional —</option>
             @foreach($jobTitles as $title)
                 <option value="{{ $title->id }}"
                     @selected(old('job_title_id', $deduction->job_title_id ?? '') == $title->id)>
@@ -135,13 +135,13 @@
         <label class="form-label">Supporting Document</label>
         <input type="file" name="supporting_document" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
         @isset($deduction)
-    @if($deduction->supporting_document)
-        <small class="text-muted d-block mt-1">
-            Current:
-            <a href="{{ route('deductions.document', $deduction) }}" target="_blank">View file</a>
-        </small>
-    @endif
-@endisset
+            @if($deduction->supporting_document)
+                <small class="text-muted d-block mt-1">
+                    Current:
+                    <a href="{{ route('deductions.document', $deduction) }}" target="_blank">View file</a>
+                </small>
+            @endif
+        @endisset
     </div>
 
     {{-- Reason --}}
@@ -177,7 +177,7 @@
         <table class="table table-bordered" id="installments-table">
             <thead class="table-light">
                 <tr>
-                    <th>Payroll Period <span class="text-danger">*</span></th>
+                    <th>Salary Month<span class="text-danger">*</span></th>
                     <th>Period Start</th>
                     <th>Period End</th>
                     <th width="160">Amount <span class="text-danger">*</span></th>
@@ -191,13 +191,24 @@
 
                 @if(count($oldInstallments))
                     @foreach($oldInstallments as $i => $inst)
+                        @php
+                            $pp = $inst['payroll_period'] ?? '';
+                            $ppValue = '';
+
+                            if (preg_match('/^\d{4}-\d{2}$/', $pp)) {
+                                $ppValue = $pp;
+                            } elseif ($pp) {
+                                try {
+                                    $ppValue = \Illuminate\Support\Carbon::parse('1 ' . $pp)->format('Y-m');
+                                } catch (\Throwable $e) {}
+                            }
+                        @endphp
                         <tr class="installment-row">
                             <td>
-                                <input type="text"
+                                <input type="month"
                                        name="installments[{{ $i }}][payroll_period]"
-                                       value="{{ $inst['payroll_period'] ?? '' }}"
+                                       value="{{ $ppValue }}"
                                        class="form-control"
-                                       placeholder="e.g. January 2026"
                                        required>
                             </td>
                             <td>
@@ -258,13 +269,14 @@ document.addEventListener('DOMContentLoaded', function () {
     let rowIndex = document.querySelectorAll('.installment-row').length;
 
     function toggleInstallments() {
-        if (categorySelect.value === 'installment') {
-            installmentSection.style.display = 'block';
-            if (installmentsBody.children.length === 0) {
-                addInstallmentRow();
-            }
-        } else {
-            installmentSection.style.display = 'none';
+        const on = categorySelect.value === 'installment';
+        installmentSection.style.display = on ? 'block' : 'none';
+
+        // Disabled inputs are not validated or submitted
+        installmentSection.querySelectorAll('input').forEach(el => el.disabled = !on);
+
+        if (on && installmentsBody.children.length === 0) {
+            addInstallmentRow();
         }
     }
 
@@ -273,8 +285,8 @@ document.addEventListener('DOMContentLoaded', function () {
         tr.className = 'installment-row';
         tr.innerHTML = `
             <td>
-                <input type="text" name="installments[${rowIndex}][payroll_period]"
-                       class="form-control" placeholder="e.g. January 2026" required>
+                <input type="month" name="installments[${rowIndex}][payroll_period]"
+                       class="form-control" required>
             </td>
             <td>
                 <input type="date" name="installments[${rowIndex}][period_start]" class="form-control">
