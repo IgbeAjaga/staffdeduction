@@ -170,10 +170,9 @@
                             <tr>
                                 <th width="160">Actions</th>
                                 <th>#</th>
-                                <th>Bulk code</th>
-                                <th>Deduction ID</th>
-                                <th>Staff Name</th>
-                                <th>Salary No</th>
+                                <th>Code</th>
+                                <th>Salary No</th>                                
+                                <th>Staff Name</th>                                
                                 <th>Branch</th>
                                 <th>Section</th>
                                 <th>Department</th>
@@ -212,10 +211,9 @@
             {{ $deduction->group_id }}
         </a>
     @endif
-</td>
-                                    <td><code>{{ $deduction->deduction_id }}</code></td>
-                                    <td>{{ $deduction->staff_name }}</td>
+</td>                                    
                                     <td>{{ $deduction->salary_number }}</td>
+                                    <td>{{ $deduction->staff_name }}</td>                                    
                                     <td>{{ $deduction->branch?->name ?? '—' }}</td>
                                     <td>{{ $deduction->section?->name ?? '—' }}</td>
                                     <td>{{ $deduction->department?->name ?? '—' }}</td>

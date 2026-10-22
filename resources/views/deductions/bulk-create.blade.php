@@ -23,6 +23,10 @@
             </div>
         </div>
 
+        @if(session('error'))
+            <div class="alert alert-danger">{{ session('error') }}</div>
+        @endif
+
         @if($errors->any())
             <div class="alert alert-danger">
                 <ul class="mb-0">
@@ -36,7 +40,6 @@
         <form method="POST" action="{{ route('deductions.bulk.store') }}" enctype="multipart/form-data">
             @csrf
 
-            {{-- SHARED FIELDS --}}
             <div class="card mb-2">
                 <div class="card-header">
                     <h4 class="card-title mb-0">Shared Details (applies to all staff)</h4>
@@ -75,7 +78,7 @@
 
                         <div class="col-md-4">
                             <label class="form-label">Category <span class="text-danger">*</span></label>
-                            <select name="category" class="form-select" required>
+                            <select name="category" id="category" class="form-select" required>
                                 <option value="one_time" @selected(old('category', 'one_time') == 'one_time')>One Time</option>
                                 <option value="installment" @selected(old('category') == 'installment')>Installment</option>
                             </select>
@@ -96,13 +99,13 @@
                         </div>
 
                         <div class="col-md-4">
-                            <label class="form-label">Total Amount <span class="text-danger">*</span></label>
+                            <label class="form-label">Total Amount</label>
                             <input type="number" step="0.01" min="0.01"
                                    id="total-amount"
                                    class="form-control"
                                    placeholder="e.g. 1000000"
                                    value="{{ old('total_amount') }}">
-                            <small class="text-muted">Will be shared equally across all staff below</small>
+                            <small class="text-muted">Shared equally across staff (optional helper)</small>
                         </div>
 
                         <div class="col-md-4">
@@ -120,10 +123,37 @@
                             <textarea name="remarks" rows="2" class="form-control">{{ old('remarks') }}</textarea>
                         </div>
                     </div>
+
+                    {{-- INSTALLMENT PERIODS (shared for all staff) --}}
+<div id="bulk-installment-section" class="mt-3" style="display: none;">
+    <hr>
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <h5 class="mb-0">Installment Periods (same for all staff) <span class="text-danger">*</span></h5>
+        <button type="button" class="btn btn-sm btn-outline-primary" id="add-bulk-period">
+            Add Period
+        </button>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-bordered" id="bulk-periods-table">
+            <thead class="table-light">
+                <tr>
+                    <th width="220">Payroll Month *</th>
+                    <th>Period Start</th>
+                    <th>Period End</th>
+                    <th width="60"></th>
+                </tr>
+            </thead>
+            <tbody id="bulk-periods-body"></tbody>
+        </table>
+    </div>
+    <small class="text-muted">
+        Select month/year. Start and end dates fill automatically for Payroll Due filtering.
+        Each staff amount is split equally across these periods.
+    </small>
+</div>
                 </div>
             </div>
 
-            {{-- STAFF ROWS --}}
             <div class="card mb-2">
                 <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-1">
                     <h4 class="card-title mb-0">
@@ -135,7 +165,7 @@
                             Each share: <strong id="each-share">0.00</strong>
                         </span>
                         <button type="button" class="btn btn-sm btn-outline-primary" id="add-staff-row">
-                            <i data-feather="plus"></i> Add Staff
+                            Add Staff
                         </button>
                     </div>
                 </div>
@@ -146,7 +176,7 @@
                                 <tr>
                                     <th>Staff Name *</th>
                                     <th>Salary No *</th>
-                                    <th>Department *</th>
+                                    <th>Department</th>
                                     <th>Job Title</th>
                                     <th width="140">Amount *</th>
                                     <th width="60"></th>
@@ -167,9 +197,7 @@
 
             <div class="d-flex gap-2">
                 <a href="{{ route('deductions.index') }}" class="btn btn-secondary">Cancel</a>
-                <button type="submit" class="btn btn-primary">
-                    Create All Deductions
-                </button>
+                <button type="submit" class="btn btn-primary">Create All Deductions</button>
             </div>
         </form>
 
@@ -184,7 +212,13 @@ document.addEventListener('DOMContentLoaded', function () {
     const staffCountEl = document.getElementById('staff-count');
     const eachShareEl = document.getElementById('each-share');
     const runningTotalEl = document.getElementById('running-total');
+    const categorySelect = document.getElementById('category');
+    const installmentSection = document.getElementById('bulk-installment-section');
+    const periodsBody = document.getElementById('bulk-periods-body');
+    const addPeriodBtn = document.getElementById('add-bulk-period');
+
     let index = 0;
+    let periodIndex = 0;
 
     const departments = @json($departments->map(fn($d) => ['id' => $d->id, 'name' => $d->name]));
     const jobTitles   = @json($jobTitles->map(fn($j) => ['id' => $j->id, 'name' => $j->name]));
@@ -202,7 +236,6 @@ document.addEventListener('DOMContentLoaded', function () {
     function redistribute() {
         const total = parseFloat(totalAmountInput.value) || 0;
         const count = staffCount();
-
         staffCountEl.textContent = count;
 
         if (count === 0 || total <= 0) {
@@ -212,10 +245,8 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
-        // Equal split (last person gets remainder to avoid floating-point issues)
         const base = Math.floor((total / count) * 100) / 100;
         let allocated = 0;
-
         const amounts = body.querySelectorAll('.staff-amount');
         amounts.forEach((el, i) => {
             if (i === amounts.length - 1) {
@@ -225,7 +256,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 allocated += base;
             }
         });
-
         eachShareEl.textContent = base.toFixed(2);
         updateRunningTotal();
     }
@@ -241,14 +271,8 @@ document.addEventListener('DOMContentLoaded', function () {
     function addRow(data = {}) {
         const tr = document.createElement('tr');
         tr.innerHTML = `
-            <td>
-                <input type="text" name="staff[${index}][staff_name]"
-                       class="form-control" value="${data.staff_name || ''}" required>
-            </td>
-            <td>
-                <input type="text" name="staff[${index}][salary_number]"
-                       class="form-control" value="${data.salary_number || ''}" required>
-            </td>
+            <td><input type="text" name="staff[${index}][staff_name]" class="form-control" value="${data.staff_name || ''}" required></td>
+            <td><input type="text" name="staff[${index}][salary_number]" class="form-control" value="${data.salary_number || ''}" required></td>
             <td>
                 <select name="staff[${index}][department_id]" class="form-select">
                     <option value="">— Optional —</option>
@@ -261,23 +285,98 @@ document.addEventListener('DOMContentLoaded', function () {
                     ${options(jobTitles, data.job_title_id)}
                 </select>
             </td>
-            <td>
-                <input type="number" step="0.01" name="staff[${index}][amount]"
-                       class="form-control staff-amount" value="${data.amount || ''}" required>
-            </td>
-            <td>
-                <button type="button" class="btn btn-sm btn-danger remove-row">×</button>
-            </td>
+            <td><input type="number" step="0.01" name="staff[${index}][amount]" class="form-control staff-amount" value="${data.amount || ''}" required></td>
+            <td><button type="button" class="btn btn-sm btn-danger remove-row">×</button></td>
         `;
         body.appendChild(tr);
         index++;
         redistribute();
-        if (window.feather) feather.replace();
+    }
+
+    function monthLabel(ym) {
+    // ym = "2026-10" → "October 2026"
+    if (!ym || ym.length < 7) return '';
+    const [y, m] = ym.split('-').map(Number);
+    const d = new Date(y, m - 1, 1);
+    return d.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+}
+
+function monthBounds(ym) {
+    // returns { start: 'YYYY-MM-DD', end: 'YYYY-MM-DD' }
+    if (!ym || ym.length < 7) return { start: '', end: '' };
+    const [y, m] = ym.split('-').map(Number);
+    const start = `${y}-${String(m).padStart(2, '0')}-01`;
+    const lastDay = new Date(y, m, 0).getDate();
+    const end = `${y}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+    return { start, end };
+}
+
+function addPeriodRow(data = {}) {
+    const tr = document.createElement('tr');
+    const idx = periodIndex;
+    const ym = data.payroll_month || data.period_start?.slice(0, 7) || '';
+    const bounds = monthBounds(ym);
+
+    tr.innerHTML = `
+        <td>
+            <input type="month"
+                   name="installments[${idx}][payroll_month]"
+                   class="form-control payroll-month"
+                   value="${ym}"
+                   required>
+            <input type="hidden"
+                   name="installments[${idx}][payroll_period]"
+                   class="payroll-period-label"
+                   value="${ym ? monthLabel(ym) : ''}">
+        </td>
+        <td>
+            <input type="date"
+                   name="installments[${idx}][period_start]"
+                   class="form-control period-start"
+                   value="${data.period_start || bounds.start || ''}"
+                   readonly>
+        </td>
+        <td>
+            <input type="date"
+                   name="installments[${idx}][period_end]"
+                   class="form-control period-end"
+                   value="${data.period_end || bounds.end || ''}"
+                   readonly>
+        </td>
+        <td>
+            <button type="button" class="btn btn-sm btn-danger remove-period">×</button>
+        </td>
+    `;
+    periodsBody.appendChild(tr);
+    periodIndex++;
+}
+
+// Auto-fill start/end + label when month changes
+periodsBody.addEventListener('change', function (e) {
+    if (!e.target.classList.contains('payroll-month')) return;
+    const tr = e.target.closest('tr');
+    const ym = e.target.value;
+    const bounds = monthBounds(ym);
+    tr.querySelector('.period-start').value = bounds.start;
+    tr.querySelector('.period-end').value = bounds.end;
+    tr.querySelector('.payroll-period-label').value = monthLabel(ym);
+});
+
+    function toggleInstallments() {
+        if (categorySelect.value === 'installment') {
+            installmentSection.style.display = 'block';
+            if (periodsBody.children.length === 0) {
+                addPeriodRow();
+            }
+        } else {
+            installmentSection.style.display = 'none';
+        }
     }
 
     addBtn.addEventListener('click', () => addRow());
-
+    addPeriodBtn.addEventListener('click', () => addPeriodRow());
     totalAmountInput.addEventListener('input', redistribute);
+    categorySelect.addEventListener('change', toggleInstallments);
 
     body.addEventListener('click', function (e) {
         if (e.target.classList.contains('remove-row')) {
@@ -290,15 +389,24 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-    // Allow manual override of individual amounts (then update total display only)
+    periodsBody.addEventListener('click', function (e) {
+        if (e.target.classList.contains('remove-period')) {
+            if (periodsBody.children.length > 1) {
+                e.target.closest('tr').remove();
+            } else {
+                alert('At least one period is required for installment.');
+            }
+        }
+    });
+
     body.addEventListener('input', function (e) {
         if (e.target.classList.contains('staff-amount')) {
             updateRunningTotal();
         }
     });
 
-    // Start with 1 row
     addRow();
+    toggleInstallments();
 });
 </script>
 @endsection

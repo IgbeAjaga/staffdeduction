@@ -160,16 +160,17 @@
                         <thead class="table-dark text-nowrap" style="position: sticky; top: 0; z-index: 10;">
                             <tr>
                                 <th>#</th>
-                                <th>Deduction ID</th>
+                                <th>Salary No</th>
                                 <th>Staff Name</th>
                                 <th>Branch</th>
                                 <th>Section</th>
                                 <th>Department</th>
                                 <th>Type</th>
                                 <th>Amount</th>
-                                <th>Category</th>
+                                <th>Payment Plan</th>
                                 <th>Status</th>
                                 <th>Date</th>
+                                <th>Deduction ID</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -182,11 +183,7 @@
                                             {{ $loop->iteration }}
                                         @endif
                                     </td>
-                                    <td>
-                                        <a href="{{ route('deductions.show', $deduction) }}">
-                                            <code>{{ $deduction->deduction_id }}</code>
-                                        </a>
-                                    </td>
+                                    <td>{{ $deduction->salary_number }}</td>
                                     <td>{{ $deduction->staff_name }}</td>
                                     <td>{{ $deduction->branch?->name ?? '—' }}</td>
                                     <td>{{ $deduction->section?->name ?? '—' }}</td>
@@ -210,6 +207,11 @@
                                         </span>
                                     </td>
                                     <td>{{ $deduction->deduction_date?->format('d M Y') }}</td>
+                                    <td>
+                                        <a href="{{ route('deductions.show', $deduction) }}">
+                                            <code>{{ $deduction->deduction_id }}</code>
+                                        </a>
+                                    </td>
                                 </tr>
                             @empty
                                 <tr>

@@ -37,7 +37,8 @@ class StoreDeductionRequest extends FormRequest
 
             // Installment specific (only required when category = installment)
             'installments'                      => ['required_if:category,installment', 'array', 'min:1'],
-            'installments.*.payroll_period'     => ['required_with:installments', 'string', 'max:50'],
+            'installments.*.payroll_month'    => ['required_with:installments', 'date_format:Y-m'],
+            'installments.*.payroll_period'   => ['nullable', 'string', 'max:50'],
             'installments.*.period_start'       => ['nullable', 'date'],
             'installments.*.period_end'         => ['nullable', 'date', 'after_or_equal:installments.*.period_start'],
             'installments.*.amount'             => ['required_with:installments', 'numeric', 'min:0'],

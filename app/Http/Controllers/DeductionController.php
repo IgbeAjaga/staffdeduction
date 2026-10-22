@@ -19,9 +19,35 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Carbon\Carbon;
 
 class DeductionController extends Controller
 {
+    /**
+     * Normalize one installment row from form (payroll_month → label + dates).
+     */
+    protected function resolveInstallmentPeriod(array $item): array
+    {
+        $ym = $item['payroll_month'] ?? null;
+
+        if ($ym) {
+            $start = Carbon::createFromFormat('Y-m', $ym)->startOfMonth();
+            $end   = (clone $start)->endOfMonth();
+
+            return [
+                'payroll_period' => $item['payroll_period'] ?? $start->format('F Y'),
+                'period_start'   => $item['period_start'] ?? $start->toDateString(),
+                'period_end'     => $item['period_end'] ?? $end->toDateString(),
+            ];
+        }
+
+        return [
+            'payroll_period' => $item['payroll_period'] ?? '',
+            'period_start'   => $item['period_start'] ?? null,
+            'period_end'     => $item['period_end'] ?? null,
+        ];
+    }
+
     public function index(Request $request)
     {
         $this->authorize('viewAny', Deduction::class);
@@ -95,7 +121,10 @@ class DeductionController extends Controller
         try {
             $data = $request->validated();
             $data['created_by'] = Auth::id();
-            $data['status']     = 'pending';
+            $data['status'] = 'pending';
+
+            // Not mass-assigned on deduction
+            unset($data['installments'], $data['supporting_document']);
 
             if ($request->hasFile('supporting_document')) {
                 $data['supporting_document'] = $request->file('supporting_document')
@@ -106,13 +135,16 @@ class DeductionController extends Controller
 
             if ($request->category === 'installment' && $request->has('installments')) {
                 foreach ($request->installments as $item) {
+                    $period = $this->resolveInstallmentPeriod($item);
+
                     DeductionInstallment::create([
                         'deduction_id'   => $deduction->id,
-                        'payroll_period' => $item['payroll_period'],
-                        'period_start'   => $item['period_start'] ?? null,
-                        'period_end'     => $item['period_end'] ?? null,
+                        'payroll_period' => $period['payroll_period'],
+                        'period_start'   => $period['period_start'],
+                        'period_end'     => $period['period_end'],
                         'amount'         => $item['amount'],
                         'is_edited'      => $item['is_edited'] ?? false,
+                        'status'         => 'pending',
                     ]);
                 }
             }
@@ -139,8 +171,6 @@ class DeductionController extends Controller
         }
     }
 
-    // ==================== BULK / GROUP DEDUCTION ====================
-
     public function bulkCreate()
     {
         $this->authorize('create', Deduction::class);
@@ -161,8 +191,14 @@ class DeductionController extends Controller
         DB::beginTransaction();
 
         try {
-            $data    = $request->validated();
+            $data = $request->validated();
             $groupId = 'GRP-' . strtoupper(Str::random(8));
+            $isInstallment = $data['category'] === 'installment';
+            $periods = $isInstallment ? ($data['installments'] ?? []) : [];
+
+            if ($isInstallment && count($periods) < 1) {
+                return back()->withInput()->with('error', 'Add at least one installment period.');
+            }
 
             $documentPath = null;
             if ($request->hasFile('supporting_document')) {
@@ -173,25 +209,49 @@ class DeductionController extends Controller
             $created = 0;
 
             foreach ($data['staff'] as $staff) {
-    $deduction = Deduction::create([
-        'group_id'            => $groupId,
-        'branch_id'           => $data['branch_id'],
-        'section_id'          => $data['section_id'],          // shared
-        'department_id'       => $staff['department_id'],
-        'job_title_id'        => $staff['job_title_id'] ?? null, // optional
-        'deduction_type_id'   => $data['deduction_type_id'],
-        'staff_name'          => $staff['staff_name'],
-        'salary_number'       => $staff['salary_number'],
-        'amount'              => $staff['amount'],
-        'category'            => $data['category'],
-        'deduction_date'      => $data['deduction_date'],
-        'effective_date'      => $data['effective_date'],
-        'reason'              => $data['reason'],
-        'remarks'             => $data['remarks'] ?? null,
-        'supporting_document' => $documentPath,
-        'status'              => 'pending',
-        'created_by'          => Auth::id(),
-    ]);
+                $deduction = Deduction::create([
+                    'group_id'            => $groupId,
+                    'branch_id'           => $data['branch_id'],
+                    'section_id'          => $data['section_id'],
+                    'department_id'       => $staff['department_id'] ?? null,
+                    'job_title_id'        => $staff['job_title_id'] ?? null,
+                    'deduction_type_id'   => $data['deduction_type_id'],
+                    'staff_name'          => $staff['staff_name'],
+                    'salary_number'       => $staff['salary_number'],
+                    'amount'              => $staff['amount'],
+                    'category'            => $data['category'],
+                    'deduction_date'      => $data['deduction_date'],
+                    'effective_date'      => $data['effective_date'],
+                    'reason'              => $data['reason'],
+                    'remarks'             => $data['remarks'] ?? null,
+                    'supporting_document' => $documentPath,
+                    'status'              => 'pending',
+                    'created_by'          => Auth::id(),
+                ]);
+
+                if ($isInstallment) {
+                    $staffAmount = (float) $staff['amount'];
+                    $n = count($periods);
+                    $base = floor(($staffAmount / $n) * 100) / 100;
+                    $allocated = 0;
+
+                    foreach ($periods as $i => $period) {
+                        $resolved = $this->resolveInstallmentPeriod($period);
+                        $amt = ($i === $n - 1)
+                            ? round($staffAmount - $allocated, 2)
+                            : $base;
+                        $allocated += $amt;
+
+                        DeductionInstallment::create([
+                            'deduction_id'   => $deduction->id,
+                            'payroll_period' => $resolved['payroll_period'],
+                            'period_start'   => $resolved['period_start'],
+                            'period_end'     => $resolved['period_end'],
+                            'amount'         => $amt,
+                            'status'         => 'pending',
+                        ]);
+                    }
+                }
 
                 DeductionAudit::create([
                     'deduction_id' => $deduction->id,
@@ -208,7 +268,8 @@ class DeductionController extends Controller
 
             return redirect()
                 ->route('deductions.index', ['group_id' => $groupId])
-                ->with('success', "{$created} deductions created successfully under group {$groupId}.");
+                ->with('success', "{$created} deductions created under group {$groupId}." .
+                    ($isInstallment ? ' Installment periods were created for each staff.' : ''));
         } catch (\Exception $e) {
             DB::rollBack();
 
@@ -240,6 +301,8 @@ class DeductionController extends Controller
                 'approved_by'   => $request->approved_by,
                 'approval_date' => now(),
             ]);
+
+            $deduction->installments()->update(['status' => 'approved']);
 
             DeductionAudit::create([
                 'deduction_id' => $deduction->id,
@@ -296,6 +359,11 @@ class DeductionController extends Controller
                 'applied_date' => now(),
             ]);
 
+            $deduction->installments()->update([
+                'status'     => 'applied',
+                'applied_at' => now(),
+            ]);
+
             DeductionAudit::create([
                 'deduction_id' => $deduction->id,
                 'user_id'      => Auth::id(),
@@ -306,8 +374,6 @@ class DeductionController extends Controller
 
         return back()->with('success', $deductions->count() . ' deductions in group applied to payroll.');
     }
-
-    // ==================== SINGLE RECORD ====================
 
     public function show(Deduction $deduction)
     {
@@ -350,6 +416,7 @@ class DeductionController extends Controller
         try {
             $oldValues = $deduction->toArray();
             $data = $request->validated();
+            unset($data['installments'], $data['supporting_document']);
 
             if ($request->hasFile('supporting_document')) {
                 if ($deduction->supporting_document) {
@@ -364,14 +431,21 @@ class DeductionController extends Controller
             if ($request->category === 'installment' && $request->has('installments')) {
                 $deduction->installments()->delete();
 
+                $instStatus = in_array($deduction->status, ['approved', 'applied'], true)
+                    ? 'approved'
+                    : 'pending';
+
                 foreach ($request->installments as $item) {
+                    $period = $this->resolveInstallmentPeriod($item);
+
                     DeductionInstallment::create([
                         'deduction_id'   => $deduction->id,
-                        'payroll_period' => $item['payroll_period'],
-                        'period_start'   => $item['period_start'] ?? null,
-                        'period_end'     => $item['period_end'] ?? null,
+                        'payroll_period' => $period['payroll_period'],
+                        'period_start'   => $period['period_start'],
+                        'period_end'     => $period['period_end'],
                         'amount'         => $item['amount'],
                         'is_edited'      => $item['is_edited'] ?? false,
+                        'status'         => $instStatus,
                     ]);
                 }
             } else {
@@ -420,8 +494,6 @@ class DeductionController extends Controller
             ->with('success', 'Deduction soft-deleted and logged.');
     }
 
-    // ==================== Workflow Actions ====================
-
     public function approve(Request $request, Deduction $deduction)
     {
         $this->authorize('approve', $deduction);
@@ -435,6 +507,8 @@ class DeductionController extends Controller
             'approved_by'   => $request->approved_by,
             'approval_date' => now(),
         ]);
+
+        $deduction->installments()->update(['status' => 'approved']);
 
         DeductionAudit::create([
             'deduction_id' => $deduction->id,
@@ -473,6 +547,11 @@ class DeductionController extends Controller
         $deduction->update([
             'status'       => 'applied',
             'applied_date' => now(),
+        ]);
+
+        $deduction->installments()->update([
+            'status'     => 'applied',
+            'applied_at' => now(),
         ]);
 
         DeductionAudit::create([

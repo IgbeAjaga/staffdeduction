@@ -15,7 +15,7 @@ class DeductionInstallment extends Model
         'amount',
         'is_edited',
         'status',
-    'applied_at',
+        'applied_at',
     ];
 
     protected $casts = [
@@ -30,8 +30,9 @@ class DeductionInstallment extends Model
     {
         return $this->belongsTo(Deduction::class);
     }
+
     public function isApplied(): bool
-{
-    return $this->status === 'applied';
-}
+    {
+        return $this->status === 'applied';
+    }
 }

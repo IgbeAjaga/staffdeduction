@@ -1,6 +1,5 @@
 <div class="row g-3">
 
-    {{-- Branch --}}
     <div class="col-md-6">
         <label class="form-label">Branch <span class="text-danger">*</span></label>
         <select name="branch_id" class="form-select @error('branch_id') is-invalid @enderror" required>
@@ -15,7 +14,6 @@
         @error('branch_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
     </div>
 
-    {{-- Section --}}
     <div class="col-md-6">
         <label class="form-label">Section <span class="text-danger">*</span></label>
         <select name="section_id" class="form-select @error('section_id') is-invalid @enderror" required>
@@ -30,7 +28,6 @@
         @error('section_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
     </div>
 
-    {{-- Staff Name --}}
     <div class="col-md-6">
         <label class="form-label">Staff Name <span class="text-danger">*</span></label>
         <input type="text" name="staff_name"
@@ -39,7 +36,6 @@
         @error('staff_name') <div class="invalid-feedback">{{ $message }}</div> @enderror
     </div>
 
-    {{-- Salary Number --}}
     <div class="col-md-6">
         <label class="form-label">Salary Number <span class="text-danger">*</span></label>
         <input type="text" name="salary_number"
@@ -48,7 +44,6 @@
         @error('salary_number') <div class="invalid-feedback">{{ $message }}</div> @enderror
     </div>
 
-    {{-- Department --}}
     <div class="col-md-6">
         <label class="form-label">Department</label>
         <select name="department_id" class="form-select @error('department_id') is-invalid @enderror">
@@ -63,7 +58,6 @@
         @error('department_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
     </div>
 
-    {{-- Job Title --}}
     <div class="col-md-6">
         <label class="form-label">Job Title</label>
         <select name="job_title_id" class="form-select @error('job_title_id') is-invalid @enderror">
@@ -78,7 +72,6 @@
         @error('job_title_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
     </div>
 
-    {{-- Deduction Type --}}
     <div class="col-md-6">
         <label class="form-label">Deduction Type <span class="text-danger">*</span></label>
         <select name="deduction_type_id" class="form-select @error('deduction_type_id') is-invalid @enderror" required>
@@ -93,7 +86,6 @@
         @error('deduction_type_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
     </div>
 
-    {{-- Amount --}}
     <div class="col-md-4">
         <label class="form-label">Amount <span class="text-danger">*</span></label>
         <input type="number" step="0.01" name="amount" id="amount"
@@ -102,7 +94,6 @@
         @error('amount') <div class="invalid-feedback">{{ $message }}</div> @enderror
     </div>
 
-    {{-- Category --}}
     <div class="col-md-4">
         <label class="form-label">Payment Plan <span class="text-danger">*</span></label>
         <select name="category" id="category" class="form-select @error('category') is-invalid @enderror" required>
@@ -112,7 +103,6 @@
         @error('category') <div class="invalid-feedback">{{ $message }}</div> @enderror
     </div>
 
-    {{-- Deduction Date --}}
     <div class="col-md-4">
         <label class="form-label">Deduction Date <span class="text-danger">*</span></label>
         <input type="date" name="deduction_date"
@@ -121,7 +111,6 @@
         @error('deduction_date') <div class="invalid-feedback">{{ $message }}</div> @enderror
     </div>
 
-    {{-- Effective Date --}}
     <div class="col-md-6">
         <label class="form-label">Effective Date <span class="text-danger">*</span></label>
         <input type="date" name="effective_date"
@@ -130,7 +119,6 @@
         @error('effective_date') <div class="invalid-feedback">{{ $message }}</div> @enderror
     </div>
 
-    {{-- Supporting Document --}}
     <div class="col-md-6">
         <label class="form-label">Supporting Document</label>
         <input type="file" name="supporting_document" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
@@ -144,14 +132,12 @@
         @endisset
     </div>
 
-    {{-- Reason --}}
     <div class="col-12">
         <label class="form-label">Reason <span class="text-danger">*</span></label>
         <textarea name="reason" rows="3" class="form-control @error('reason') is-invalid @enderror" required>{{ old('reason', $deduction->reason ?? '') }}</textarea>
         @error('reason') <div class="invalid-feedback">{{ $message }}</div> @enderror
     </div>
 
-    {{-- Remarks --}}
     <div class="col-12">
         <label class="form-label">Remarks</label>
         <textarea name="remarks" rows="2" class="form-control">{{ old('remarks', $deduction->remarks ?? '') }}</textarea>
@@ -159,17 +145,20 @@
 
 </div>
 
-{{-- ===================== INSTALLMENT SECTION ===================== --}}
+{{-- INSTALLMENTS --}}
 <div id="installment-section" class="mt-3" style="display: none;">
     <hr>
     <div class="d-flex justify-content-between align-items-center mb-2">
         <h5 class="mb-0">Installment Periods <span class="text-danger">*</span></h5>
         <button type="button" class="btn btn-sm btn-outline-primary" id="add-installment">
-            <i data-feather="plus"></i> Add Period
+            Add Period
         </button>
     </div>
 
     @error('installments')
+        <div class="alert alert-danger py-1">{{ $message }}</div>
+    @enderror
+    @error('installments.*.payroll_month')
         <div class="alert alert-danger py-1">{{ $message }}</div>
     @enderror
 
@@ -177,10 +166,10 @@
         <table class="table table-bordered" id="installments-table">
             <thead class="table-light">
                 <tr>
-                    <th>Salary Month<span class="text-danger">*</span></th>
+                    <th width="200">Payroll Month *</th>
                     <th>Period Start</th>
                     <th>Period End</th>
-                    <th width="160">Amount <span class="text-danger">*</span></th>
+                    <th width="160">Amount *</th>
                     <th width="70">Action</th>
                 </tr>
             </thead>
@@ -189,55 +178,62 @@
                     $oldInstallments = old('installments', isset($deduction) ? $deduction->installments->toArray() : []);
                 @endphp
 
-                @if(count($oldInstallments))
-                    @foreach($oldInstallments as $i => $inst)
-                        @php
-                            $pp = $inst['payroll_period'] ?? '';
-                            $ppValue = '';
-
-                            if (preg_match('/^\d{4}-\d{2}$/', $pp)) {
-                                $ppValue = $pp;
-                            } elseif ($pp) {
-                                try {
-                                    $ppValue = \Illuminate\Support\Carbon::parse('1 ' . $pp)->format('Y-m');
-                                } catch (\Throwable $e) {}
+                @foreach($oldInstallments as $i => $inst)
+                    @php
+                        $ym = old("installments.$i.payroll_month");
+                        if (!$ym && !empty($inst['period_start'])) {
+                            $ym = \Illuminate\Support\Carbon::parse($inst['period_start'])->format('Y-m');
+                        }
+                        if (!$ym && !empty($inst['payroll_period'])) {
+                            try {
+                                $ym = \Illuminate\Support\Carbon::parse('01 ' . $inst['payroll_period'])->format('Y-m');
+                            } catch (\Throwable $e) {
+                                if (preg_match('/^\d{4}-\d{2}$/', $inst['payroll_period'])) {
+                                    $ym = $inst['payroll_period'];
+                                }
                             }
-                        @endphp
-                        <tr class="installment-row">
-                            <td>
-                                <input type="month"
-                                       name="installments[{{ $i }}][payroll_period]"
-                                       value="{{ $ppValue }}"
-                                       class="form-control"
-                                       required>
-                            </td>
-                            <td>
-                                <input type="date"
-                                       name="installments[{{ $i }}][period_start]"
-                                       value="{{ isset($inst['period_start']) ? \Illuminate\Support\Carbon::parse($inst['period_start'])->format('Y-m-d') : ($inst['period_start'] ?? '') }}"
-                                       class="form-control">
-                            </td>
-                            <td>
-                                <input type="date"
-                                       name="installments[{{ $i }}][period_end]"
-                                       value="{{ isset($inst['period_end']) ? \Illuminate\Support\Carbon::parse($inst['period_end'])->format('Y-m-d') : ($inst['period_end'] ?? '') }}"
-                                       class="form-control">
-                            </td>
-                            <td>
-                                <input type="number" step="0.01"
-                                       name="installments[{{ $i }}][amount]"
-                                       value="{{ $inst['amount'] ?? '' }}"
-                                       class="form-control installment-amount"
-                                       required>
-                            </td>
-                            <td>
-                                <button type="button" class="btn btn-sm btn-danger remove-installment">
-                                    <i data-feather="trash-2"></i>
-                                </button>
-                            </td>
-                        </tr>
-                    @endforeach
-                @endif
+                        }
+                        $startVal = old("installments.$i.period_start", isset($inst['period_start']) ? \Illuminate\Support\Carbon::parse($inst['period_start'])->format('Y-m-d') : '');
+                        $endVal = old("installments.$i.period_end", isset($inst['period_end']) ? \Illuminate\Support\Carbon::parse($inst['period_end'])->format('Y-m-d') : '');
+                    @endphp
+                    <tr class="installment-row">
+                        <td>
+                            <input type="month"
+                                   name="installments[{{ $i }}][payroll_month]"
+                                   value="{{ $ym }}"
+                                   class="form-control payroll-month"
+                                   required>
+                            <input type="hidden"
+                                   name="installments[{{ $i }}][payroll_period]"
+                                   class="payroll-period-label"
+                                   value="{{ $inst['payroll_period'] ?? '' }}">
+                        </td>
+                        <td>
+                            <input type="date"
+                                   name="installments[{{ $i }}][period_start]"
+                                   value="{{ $startVal }}"
+                                   class="form-control period-start"
+                                   readonly>
+                        </td>
+                        <td>
+                            <input type="date"
+                                   name="installments[{{ $i }}][period_end]"
+                                   value="{{ $endVal }}"
+                                   class="form-control period-end"
+                                   readonly>
+                        </td>
+                        <td>
+                            <input type="number" step="0.01"
+                                   name="installments[{{ $i }}][amount]"
+                                   value="{{ old("installments.$i.amount", $inst['amount'] ?? '') }}"
+                                   class="form-control installment-amount"
+                                   required>
+                        </td>
+                        <td>
+                            <button type="button" class="btn btn-sm btn-danger remove-installment">×</button>
+                        </td>
+                    </tr>
+                @endforeach
             </tbody>
             <tfoot>
                 <tr>
@@ -248,9 +244,7 @@
             </tfoot>
         </table>
     </div>
-    <small class="text-muted">
-        Total of installment amounts should equal the main Amount field.
-    </small>
+    <small class="text-muted">Select month/year. Start/end fill automatically. Total should match main Amount.</small>
 </div>
 
 <div class="mt-4 d-flex gap-2">
@@ -268,13 +262,35 @@ document.addEventListener('DOMContentLoaded', function () {
     const addBtn = document.getElementById('add-installment');
     let rowIndex = document.querySelectorAll('.installment-row').length;
 
+    function monthLabel(ym) {
+        if (!ym || ym.length < 7) return '';
+        const [y, m] = ym.split('-').map(Number);
+        return new Date(y, m - 1, 1).toLocaleString('en-US', { month: 'long', year: 'numeric' });
+    }
+
+    function monthBounds(ym) {
+        if (!ym || ym.length < 7) return { start: '', end: '' };
+        const [y, m] = ym.split('-').map(Number);
+        const start = y + '-' + String(m).padStart(2, '0') + '-01';
+        const lastDay = new Date(y, m, 0).getDate();
+        const end = y + '-' + String(m).padStart(2, '0') + '-' + String(lastDay).padStart(2, '0');
+        return { start, end };
+    }
+
+    function applyMonthToRow(tr, ym) {
+        const bounds = monthBounds(ym);
+        const startEl = tr.querySelector('.period-start');
+        const endEl = tr.querySelector('.period-end');
+        const labelEl = tr.querySelector('.payroll-period-label');
+        if (startEl) startEl.value = bounds.start;
+        if (endEl) endEl.value = bounds.end;
+        if (labelEl) labelEl.value = monthLabel(ym);
+    }
+
     function toggleInstallments() {
         const on = categorySelect.value === 'installment';
         installmentSection.style.display = on ? 'block' : 'none';
-
-        // Disabled inputs are not validated or submitted
-        installmentSection.querySelectorAll('input').forEach(el => el.disabled = !on);
-
+        installmentSection.querySelectorAll('input').forEach(el => { el.disabled = !on; });
         if (on && installmentsBody.children.length === 0) {
             addInstallmentRow();
         }
@@ -285,35 +301,36 @@ document.addEventListener('DOMContentLoaded', function () {
         tr.className = 'installment-row';
         tr.innerHTML = `
             <td>
-                <input type="month" name="installments[${rowIndex}][payroll_period]"
-                       class="form-control" required>
+                <input type="month" name="installments[${rowIndex}][payroll_month]"
+                       class="form-control payroll-month" required>
+                <input type="hidden" name="installments[${rowIndex}][payroll_period]"
+                       class="payroll-period-label" value="">
             </td>
             <td>
-                <input type="date" name="installments[${rowIndex}][period_start]" class="form-control">
+                <input type="date" name="installments[${rowIndex}][period_start]"
+                       class="form-control period-start" readonly>
             </td>
             <td>
-                <input type="date" name="installments[${rowIndex}][period_end]" class="form-control">
+                <input type="date" name="installments[${rowIndex}][period_end]"
+                       class="form-control period-end" readonly>
             </td>
             <td>
                 <input type="number" step="0.01" name="installments[${rowIndex}][amount]"
                        class="form-control installment-amount" required>
             </td>
             <td>
-                <button type="button" class="btn btn-sm btn-danger remove-installment">
-                    ×
-                </button>
+                <button type="button" class="btn btn-sm btn-danger remove-installment">×</button>
             </td>
         `;
         installmentsBody.appendChild(tr);
         rowIndex++;
         updateTotal();
-        if (window.feather) feather.replace();
     }
 
     function updateTotal() {
         let total = 0;
         document.querySelectorAll('.installment-amount').forEach(input => {
-            total += parseFloat(input.value) || 0;
+            if (!input.disabled) total += parseFloat(input.value) || 0;
         });
         document.getElementById('installment-total').textContent = total.toFixed(2);
     }
@@ -328,13 +345,26 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
+    installmentsBody.addEventListener('change', function (e) {
+        if (e.target.classList.contains('payroll-month')) {
+            applyMonthToRow(e.target.closest('tr'), e.target.value);
+        }
+    });
+
     installmentsBody.addEventListener('input', function (e) {
         if (e.target.classList.contains('installment-amount')) {
             updateTotal();
         }
     });
 
-    // Init
+    // Fill dates for existing month values on load
+    installmentsBody.querySelectorAll('.installment-row').forEach(tr => {
+        const monthEl = tr.querySelector('.payroll-month');
+        if (monthEl && monthEl.value) {
+            applyMonthToRow(tr, monthEl.value);
+        }
+    });
+
     toggleInstallments();
     updateTotal();
 });

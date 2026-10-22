@@ -38,13 +38,13 @@ class Deduction extends Model
     ];
 
     protected $casts = [
-        'amount'                 => 'decimal:2',
-        'deduction_date'         => 'date',
-        'effective_date'         => 'date',
-        'approval_date'          => 'date',
-        'applied_date'           => 'date',
-        'employee_notified'      => 'boolean',
-        'employee_acknowledged'  => 'boolean',
+        'amount'                => 'decimal:2',
+        'deduction_date'        => 'date',
+        'effective_date'        => 'date',
+        'approval_date'         => 'date',
+        'applied_date'          => 'date',
+        'employee_notified'     => 'boolean',
+        'employee_acknowledged' => 'boolean',
     ];
 
     protected static function booted(): void
@@ -66,7 +66,6 @@ class Deduction extends Model
         return 'DED-' . $date . '-' . str_pad($count, 4, '0', STR_PAD_LEFT);
     }
 
-    // Relationships
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);
@@ -106,30 +105,30 @@ class Deduction extends Model
     {
         return $this->hasMany(DeductionAudit::class);
     }
-    // Scope for a group
-public function scopeInGroup($query, string $groupId)
-{
-    return $query->where('group_id', $groupId);
-}
 
-public function isGrouped(): bool
-{
-    return !empty($this->group_id);
-}
-/** Remaining amount still to be deducted (installments not yet applied + one-time if not applied) */
-public function remainingAmount(): float
-{
-    if ($this->category === 'one_time') {
-        return $this->status === 'applied' ? 0 : (float) $this->amount;
+    public function scopeInGroup($query, string $groupId)
+    {
+        return $query->where('group_id', $groupId);
     }
 
-    return (float) $this->installments()
-        ->where('status', '!=', 'applied')
-        ->sum('amount');
-}
+    public function isGrouped(): bool
+    {
+        return ! empty($this->group_id);
+    }
 
-public function totalAmount(): float
-{
-    return (float) $this->amount;
-}
+    public function remainingAmount(): float
+    {
+        if ($this->category === 'one_time') {
+            return $this->status === 'applied' ? 0.0 : (float) $this->amount;
+        }
+
+        return (float) $this->installments()
+            ->where('status', '!=', 'applied')
+            ->sum('amount');
+    }
+
+    public function totalAmount(): float
+    {
+        return (float) $this->amount;
+    }
 }
