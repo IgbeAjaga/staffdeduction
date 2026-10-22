@@ -18,52 +18,140 @@ use Illuminate\Support\Facades\DB;
 
 class ReportController extends Controller
 {
-    public function index(Request $request)
-    {
-        $query = Deduction::with(['branch', 'section', 'department', 'jobTitle', 'deductionType', 'creator']);
+    
+public function index(Request $request)
+{
+    // Base filter on deductions (used for staff discovery + stats)
+    $base = Deduction::query();
 
-        if ($request->filled('branch_id')) {
-            $query->where('branch_id', $request->branch_id);
-        }
-        if ($request->filled('section_id')) {
-            $query->where('section_id', $request->section_id);
-        }
-        if ($request->filled('department_id')) {
-            $query->where('department_id', $request->department_id);
-        }
-        if ($request->filled('deduction_type_id')) {
-            $query->where('deduction_type_id', $request->deduction_type_id);
-        }
-        if ($request->filled('status')) {
-            $query->where('status', $request->status);
-        }
-        if ($request->filled('category')) {
-            $query->where('category', $request->category);
-        }
-        if ($request->filled('date_from') && $request->filled('date_to')) {
-            $query->whereBetween('deduction_date', [$request->date_from, $request->date_to]);
+    if ($request->filled('search')) {
+        $search = $request->search;
+        $base->where(function ($q) use ($search) {
+            $q->where('deduction_id', 'like', "%{$search}%")
+              ->orWhere('staff_name', 'like', "%{$search}%")
+              ->orWhere('salary_number', 'like', "%{$search}%")
+              ->orWhere('group_id', 'like', "%{$search}%");
+        });
+    }
+    if ($request->filled('branch_id')) {
+        $base->where('branch_id', $request->branch_id);
+    }
+    if ($request->filled('section_id')) {
+        $base->where('section_id', $request->section_id);
+    }
+    if ($request->filled('department_id')) {
+        $base->where('department_id', $request->department_id);
+    }
+    if ($request->filled('deduction_type_id')) {
+        $base->where('deduction_type_id', $request->deduction_type_id);
+    }
+    if ($request->filled('status')) {
+        $base->where('status', $request->status);
+    }
+    if ($request->filled('category')) {
+        $base->where('category', $request->category);
+    }
+    if ($request->filled('date_from') && $request->filled('date_to')) {
+        $base->whereBetween('deduction_date', [$request->date_from, $request->date_to]);
+    }
+
+    $stats = [
+        'total_amount'   => (clone $base)->sum('amount'),
+        'total_count'    => (clone $base)->count(),
+        'pending_count'  => (clone $base)->where('status', 'pending')->count(),
+        'approved_count' => (clone $base)->where('status', 'approved')->count(),
+        'applied_count'  => (clone $base)->where('status', 'applied')->count(),
+        'rejected_count' => (clone $base)->where('status', 'rejected')->count(),
+    ];
+
+    // Distinct salary numbers matching filters
+    $salaryNumbers = (clone $base)
+        ->whereNotNull('salary_number')
+        ->where('salary_number', '!=', '')
+        ->distinct()
+        ->orderBy('salary_number')
+        ->pluck('salary_number');
+
+    $rows = collect();
+
+    foreach ($salaryNumbers as $sn) {
+        // Latest deduction for display name / branch / section / department
+        $latest = Deduction::with(['branch', 'section', 'department'])
+            ->where('salary_number', $sn)
+            ->latest()
+            ->first();
+
+        if (! $latest) {
+            continue;
         }
 
-        $stats = [
-            'total_amount'   => (clone $query)->sum('amount'),
-            'total_count'    => (clone $query)->count(),
-            'pending_count'  => (clone $query)->where('status', 'pending')->count(),
-            'approved_count' => (clone $query)->where('status', 'approved')->count(),
-            'applied_count'  => (clone $query)->where('status', 'applied')->count(),
-            'rejected_count' => (clone $query)->where('status', 'rejected')->count(),
-        ];
+        // Optional: only include staff that still match branch/section filters
+        if ($request->filled('branch_id') && (int) $latest->branch_id !== (int) $request->branch_id) {
+            // still ok — totals are by salary; keep row if any deduction matched base filter
+        }
 
-        $deductions = $query->latest()->paginate(30)->withQueryString();
+        // APPLIED = cumulative ever applied for this salary number
+        $appliedInstallments = DeductionInstallment::query()
+            ->where('status', 'applied')
+            ->whereHas('deduction', fn ($q) => $q->where('salary_number', $sn))
+            ->sum('amount');
 
-        return view('reports.index', [
-            'deductions'     => $deductions,
-            'stats'          => $stats,
-            'branches'       => Branch::where('is_active', true)->orderBy('name')->get(),
-            'sections'       => Section::where('is_active', true)->orderBy('name')->get(),
-            'departments'    => Department::where('is_active', true)->orderBy('name')->get(),
-            'deductionTypes' => DeductionType::where('is_active', true)->orderBy('name')->get(),
+        $appliedOneTime = Deduction::query()
+            ->where('salary_number', $sn)
+            ->where('category', 'one_time')
+            ->where('status', 'applied')
+            ->sum('amount');
+
+        // REMAINING = approved but not yet applied
+        $remainingInstallments = DeductionInstallment::query()
+            ->where('status', 'approved')
+            ->whereHas('deduction', fn ($q) => $q->where('salary_number', $sn))
+            ->sum('amount');
+
+        $remainingOneTime = Deduction::query()
+            ->where('salary_number', $sn)
+            ->where('category', 'one_time')
+            ->where('status', 'approved')
+            ->sum('amount');
+
+        $deductionCount = Deduction::where('salary_number', $sn)->count();
+
+        $rows->push([
+            'salary_number'   => $sn,
+            'staff_name'      => $latest->staff_name,
+            'branch'          => $latest->branch?->name,
+            'section'         => $latest->section?->name,
+            'department'      => $latest->department?->name,
+            'applied'         => (float) $appliedInstallments + (float) $appliedOneTime,
+            'remaining'       => (float) $remainingInstallments + (float) $remainingOneTime,
+            'deduction_count' => $deductionCount,
         ]);
     }
+
+    // Simple pagination on the collection
+    $page = max(1, (int) $request->get('page', 1));
+    $perPage = 30;
+    $staffRows = new \Illuminate\Pagination\LengthAwarePaginator(
+        $rows->forPage($page, $perPage)->values(),
+        $rows->count(),
+        $perPage,
+        $page,
+        ['path' => $request->url(), 'query' => $request->query()]
+    );
+
+    return view('reports.index', [
+        'staffRows'      => $staffRows,
+        'stats'          => $stats,
+        'filters'        => $request->only([
+            'search', 'branch_id', 'section_id', 'department_id',
+            'status', 'category', 'date_from', 'date_to',
+        ]),
+        'branches'       => Branch::where('is_active', true)->orderBy('name')->get(),
+        'sections'       => Section::where('is_active', true)->orderBy('name')->get(),
+        'departments'    => Department::where('is_active', true)->orderBy('name')->get(),
+        'deductionTypes' => DeductionType::where('is_active', true)->orderBy('name')->get(),
+    ]);
+}
 
     public function exportExcel(Request $request)
     {

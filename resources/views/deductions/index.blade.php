@@ -15,7 +15,7 @@
             <div class="content-header-left col-md-9 col-12">
                 <div class="row breadcrumbs-top">
                     <div class="col-12">
-                        <h2 class="content-header-title float-start mb-0">Staff Deductions</h2>
+                        <h2 class="content-header-title float-start mb-0"> All Staff Deductions</h2>
                     </div>
                 </div>
             </div>

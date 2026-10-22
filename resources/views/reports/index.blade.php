@@ -26,11 +26,22 @@
             </div>
         </div>
 
+        <div class="alert alert-info mb-2">
+            One row per <strong>salary number</strong>.
+            <strong>Applied</strong> = total ever deducted (status applied).
+            <strong>Remaining</strong> = total approved but not yet applied.
+        </div>
+
         <!-- FILTER CARD -->
         <div class="card mb-2">
             <div class="card-body">
                 <form method="GET">
                     <div class="row g-1 align-items-end">
+                        <div class="col-md-3">
+                            <label class="form-label">Search</label>
+                            <input type="text" name="search" value="{{ request('search') }}"
+                                   class="form-control" placeholder="Name or salary number">
+                        </div>
                         <div class="col-md-2">
                             <label class="form-label">Branch</label>
                             <select name="branch_id" class="form-select">
@@ -64,25 +75,8 @@
                                 @endforeach
                             </select>
                         </div>
-                        <div class="col-md-2">
-                            <label class="form-label">Status</label>
-                            <select name="status" class="form-select">
-                                <option value="">All Status</option>
-                                @foreach(['pending','approved','rejected','applied','cancelled'] as $status)
-                                    <option value="{{ $status }}" @selected(request('status') == $status)>
-                                        {{ ucfirst($status) }}
-                                    </option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col-md-2">
-                            <label class="form-label">Category</label>
-                            <select name="category" class="form-select">
-                                <option value="">All</option>
-                                <option value="one_time" @selected(request('category') == 'one_time')>One Time</option>
-                                <option value="installment" @selected(request('category') == 'installment')>Installment</option>
-                            </select>
-                        </div>
+                       
+                        
                         <div class="col-md-2">
                             <label class="form-label">From Date</label>
                             <input type="date" name="date_from" value="{{ request('date_from') }}" class="form-control">
@@ -92,9 +86,7 @@
                             <input type="date" name="date_to" value="{{ request('date_to') }}" class="form-control">
                         </div>
                         <div class="col-12 mt-1 d-flex flex-wrap gap-1">
-                            <button type="submit" class="btn btn-dark btn-sm">
-                                <i data-feather="filter"></i> Filter
-                            </button>
+                            <button type="submit" class="btn btn-dark btn-sm">Filter</button>
                             <a href="{{ route('reports.index') }}" class="btn btn-outline-secondary btn-sm">Reset</a>
                             <a href="{{ route('reports.export.excel') }}?{{ http_build_query(request()->query()) }}"
                                class="btn btn-success btn-sm">Export Excel</a>
@@ -113,7 +105,7 @@
             <div class="col-md-3 col-6">
                 <div class="card">
                     <div class="card-body py-1">
-                        <h6 class="text-muted mb-0">Total Amount</h6>
+                        <h6 class="text-muted mb-0">Total Amount (filtered deductions)</h6>
                         <h3 class="fw-bolder mb-0">₦{{ number_format($stats['total_amount'] ?? 0, 2) }}</h3>
                     </div>
                 </div>
@@ -121,8 +113,8 @@
             <div class="col-md-3 col-6">
                 <div class="card">
                     <div class="card-body py-1">
-                        <h6 class="text-muted mb-0">Total Records</h6>
-                        <h3 class="fw-bolder mb-0">{{ $stats['total_count'] ?? 0 }}</h3>
+                        <h6 class="text-muted mb-0">Staff in report</h6>
+                        <h3 class="fw-bolder mb-0">{{ $staffRows->total() }}</h3>
                     </div>
                 </div>
             </div>
@@ -152,7 +144,7 @@
             </div>
         </div>
 
-        <!-- TABLE -->
+        <!-- TABLE: one row per salary number -->
         <div class="card">
             <div class="card-body">
                 <div class="table-responsive" style="max-height: 70vh; overflow: auto;">
@@ -165,68 +157,48 @@
                                 <th>Branch</th>
                                 <th>Section</th>
                                 <th>Department</th>
-                                <th>Type</th>
-                                <th>Amount</th>
-                                <th>Payment Plan</th>
-                                <th>Status</th>
-                                <th>Date</th>
-                                <th>Deduction ID</th>
+                                <th class="text-end">Applied</th>
+                                <th class="text-end">Remaining</th>
+                                <th class="text-center">Records</th>
                             </tr>
                         </thead>
                         <tbody>
-                            @forelse($deductions as $deduction)
+                            @forelse($staffRows as $row)
                                 <tr>
                                     <td>
-                                        @if(method_exists($deductions, 'currentPage'))
-                                            {{ $loop->iteration + ($deductions->currentPage() - 1) * $deductions->perPage() }}
-                                        @else
-                                            {{ $loop->iteration }}
-                                        @endif
+                                        {{ $loop->iteration + ($staffRows->currentPage() - 1) * $staffRows->perPage() }}
                                     </td>
-                                    <td>{{ $deduction->salary_number }}</td>
-                                    <td>{{ $deduction->staff_name }}</td>
-                                    <td>{{ $deduction->branch?->name ?? '—' }}</td>
-                                    <td>{{ $deduction->section?->name ?? '—' }}</td>
-                                    <td>{{ $deduction->department?->name ?? '—' }}</td>
-                                    <td>{{ $deduction->deductionType?->name ?? '—' }}</td>
-                                    <td class="fw-bold">₦{{ number_format($deduction->amount, 2) }}</td>
-                                    <td>{{ ucfirst($deduction->category) }}</td>
                                     <td>
-                                        @php
-                                            $badge = match($deduction->status) {
-                                                'pending'   => 'warning',
-                                                'approved'  => 'success',
-                                                'rejected'  => 'danger',
-                                                'applied'   => 'info',
-                                                'cancelled' => 'secondary',
-                                                default     => 'secondary',
-                                            };
-                                        @endphp
-                                        <span class="badge bg-light-{{ $badge }} text-{{ $badge }}">
-                                            {{ ucfirst($deduction->status) }}
-                                        </span>
-                                    </td>
-                                    <td>{{ $deduction->deduction_date?->format('d M Y') }}</td>
-                                    <td>
-                                        <a href="{{ route('deductions.show', $deduction) }}">
-                                            <code>{{ $deduction->deduction_id }}</code>
+                                        <a href="{{ route('deductions.index', ['search' => $row['salary_number']]) }}">
+                                            <strong>{{ $row['salary_number'] }}</strong>
                                         </a>
+                                    </td>
+                                    <td>{{ $row['staff_name'] }}</td>
+                                    <td>{{ $row['branch'] ?? '—' }}</td>
+                                    <td>{{ $row['section'] ?? '—' }}</td>
+                                    <td>{{ $row['department'] ?? '—' }}</td>
+                                    <td class="text-end text-info fw-bold">
+                                        ₦{{ number_format($row['applied'], 2) }}
+                                    </td>
+                                    <td class="text-end text-danger fw-bold">
+                                        ₦{{ number_format($row['remaining'], 2) }}
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge bg-light-secondary">{{ $row['deduction_count'] }}</span>
                                     </td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="10" class="text-center text-muted py-4">No records found.</td>
+                                    <td colspan="9" class="text-center text-muted py-4">No staff found for the selected filters.</td>
                                 </tr>
                             @endforelse
                         </tbody>
                     </table>
                 </div>
 
-                @if(method_exists($deductions, 'links'))
-                    <div class="mt-3">
-                        {{ $deductions->links('pagination::bootstrap-5') }}
-                    </div>
-                @endif
+                <div class="mt-3">
+                    {{ $staffRows->links('pagination::bootstrap-5') }}
+                </div>
             </div>
         </div>
 
