@@ -627,7 +627,6 @@ label {
         });
     }
 </script>
-@RegisterServiceWorkerScript
 
 <script>
 (function () {
@@ -678,6 +677,6 @@ label {
     setInterval(refreshToken, INTERVAL);
 })();
 </script>    
-    
+    @RegisterServiceWorkerScript
 </body>
 </html>
