@@ -99,13 +99,37 @@
                         </div>
 
                         <div class="col-md-4">
-                            <label class="form-label">Total Amount</label>
-                            <input type="number" step="0.01" min="0.01"
-                                   id="total-amount"
-                                   class="form-control"
+                            <label class="form-label">Total Amount <span class="text-danger">*</span></label>
+                            <input type="number" step="0.01" min="0.01" name="total_amount"
+                                   id="total-amount" class="form-control" required
                                    placeholder="e.g. 1000000"
                                    value="{{ old('total_amount') }}">
-                            <small class="text-muted">Shared equally across staff (optional helper)</small>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label">Allocation Method <span class="text-danger">*</span></label>
+                            <select name="allocation_method" id="allocation-method" class="form-select" required>
+                                <option value="equal" @selected(old('allocation_method', 'equal') == 'equal')>
+                                    Equal share
+                                </option>
+                                <option value="months_worked" @selected(old('allocation_method') == 'months_worked')>
+                                    By months worked
+                                </option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-4 months-worked-only" style="display: none;">
+                            <label class="form-label">Incident Months <span class="text-danger">*</span></label>
+                            <input type="number" min="1" step="1" name="incident_months"
+                                   id="incident-months" class="form-control"
+                                   value="{{ old('incident_months', 1) }}">
+                            <small class="text-muted">Months the incident/loss covered</small>
+                        </div>
+
+                        <div class="col-md-4 months-worked-only" style="display: none;">
+                            <label class="form-label">Monthly Amount (auto)</label>
+                            <input type="text" id="monthly-amount" class="form-control" readonly value="0.00">
+                            <small class="text-muted">Total ÷ Incident months</small>
                         </div>
 
                         <div class="col-md-4">
@@ -124,33 +148,31 @@
                         </div>
                     </div>
 
-                    {{-- INSTALLMENT PERIODS (shared for all staff) --}}
-<div id="bulk-installment-section" class="mt-3" style="display: none;">
-    <hr>
-    <div class="d-flex justify-content-between align-items-center mb-2">
-        <h5 class="mb-0">Installment Periods (same for all staff) <span class="text-danger">*</span></h5>
-        <button type="button" class="btn btn-sm btn-outline-primary" id="add-bulk-period">
-            Add Period
-        </button>
-    </div>
-    <div class="table-responsive">
-        <table class="table table-bordered" id="bulk-periods-table">
-            <thead class="table-light">
-                <tr>
-                    <th width="220">Payroll Month *</th>
-                    <th>Period Start</th>
-                    <th>Period End</th>
-                    <th width="60"></th>
-                </tr>
-            </thead>
-            <tbody id="bulk-periods-body"></tbody>
-        </table>
-    </div>
-    <small class="text-muted">
-        Select month/year. Start and end dates fill automatically for Payroll Due filtering.
-        Each staff amount is split equally across these periods.
-    </small>
-</div>
+                    <div class="alert alert-secondary mt-2 mb-0" id="allocation-hint">
+                        <strong>Equal share:</strong> Total is split evenly across all staff.
+                    </div>
+
+                    <div id="bulk-installment-section" class="mt-3" style="display: none;">
+                        <hr>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h5 class="mb-0">Installment Periods (same for all staff) <span class="text-danger">*</span></h5>
+                            <button type="button" class="btn btn-sm btn-outline-primary" id="add-bulk-period">Add Period</button>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-bordered">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th width="220">Payroll Month *</th>
+                                        <th>Period Start</th>
+                                        <th>Period End</th>
+                                        <th width="60"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="bulk-periods-body"></tbody>
+                            </table>
+                        </div>
+                        <small class="text-muted">Each staff amount is split equally across these periods.</small>
+                    </div>
                 </div>
             </div>
 
@@ -161,12 +183,13 @@
                         <span class="badge bg-primary" id="staff-count">0</span>
                     </h4>
                     <div class="d-flex gap-2 align-items-center flex-wrap">
-                        <span class="text-muted small">
+                        <span class="text-muted small equal-only">
                             Each share: <strong id="each-share">0.00</strong>
                         </span>
-                        <button type="button" class="btn btn-sm btn-outline-primary" id="add-staff-row">
-                            Add Staff
-                        </button>
+                        <span class="text-muted small months-worked-only" style="display: none;">
+                            Total staff-months: <strong id="total-staff-months">0</strong>
+                        </span>
+                        <button type="button" class="btn btn-sm btn-outline-primary" id="add-staff-row">Add Staff</button>
                     </div>
                 </div>
                 <div class="card-body p-0">
@@ -178,6 +201,7 @@
                                     <th>Salary No *</th>
                                     <th>Department</th>
                                     <th>Job Title</th>
+                                    <th class="months-worked-col" width="120" style="display: none;">Months Worked *</th>
                                     <th width="140">Amount *</th>
                                     <th width="60"></th>
                                 </tr>
@@ -185,7 +209,8 @@
                             <tbody id="staff-body"></tbody>
                             <tfoot>
                                 <tr class="fw-bold">
-                                    <td colspan="4" class="text-end">Total</td>
+                                    <td colspan="4" class="text-end" id="total-label-cell">Total</td>
+                                    <td class="months-worked-col" style="display: none;"></td>
                                     <td id="running-total">0.00</td>
                                     <td></td>
                                 </tr>
@@ -209,13 +234,18 @@ document.addEventListener('DOMContentLoaded', function () {
     const body = document.getElementById('staff-body');
     const addBtn = document.getElementById('add-staff-row');
     const totalAmountInput = document.getElementById('total-amount');
+    const allocationSelect = document.getElementById('allocation-method');
+    const incidentMonthsInput = document.getElementById('incident-months');
+    const monthlyAmountEl = document.getElementById('monthly-amount');
     const staffCountEl = document.getElementById('staff-count');
     const eachShareEl = document.getElementById('each-share');
+    const totalStaffMonthsEl = document.getElementById('total-staff-months');
     const runningTotalEl = document.getElementById('running-total');
     const categorySelect = document.getElementById('category');
     const installmentSection = document.getElementById('bulk-installment-section');
     const periodsBody = document.getElementById('bulk-periods-body');
     const addPeriodBtn = document.getElementById('add-bulk-period');
+    const allocationHint = document.getElementById('allocation-hint');
 
     let index = 0;
     let periodIndex = 0;
@@ -229,34 +259,105 @@ document.addEventListener('DOMContentLoaded', function () {
         ).join('');
     }
 
+    function isMonthsMode() {
+        return allocationSelect.value === 'months_worked';
+    }
+
     function staffCount() {
         return body.querySelectorAll('tr').length;
+    }
+
+    function toggleAllocationUI() {
+        const months = isMonthsMode();
+        document.querySelectorAll('.months-worked-only').forEach(el => {
+            el.style.display = months ? '' : 'none';
+        });
+        document.querySelectorAll('.equal-only').forEach(el => {
+            el.style.display = months ? 'none' : '';
+        });
+        document.querySelectorAll('.months-worked-col').forEach(el => {
+            el.style.display = months ? '' : 'none';
+        });
+
+        body.querySelectorAll('.months-worked').forEach(el => {
+            el.disabled = !months;
+            el.required = months;
+        });
+
+        if (incidentMonthsInput) {
+            incidentMonthsInput.required = months;
+        }
+
+        allocationHint.innerHTML = months
+            ? '<strong>By months worked:</strong> Staff amount = Total × (months worked ÷ sum of all months worked). Monthly amount = Total ÷ Incident months.'
+            : '<strong>Equal share:</strong> Total is split evenly across all staff.';
+
+        redistribute();
+    }
+
+    function updateMonthlyDisplay() {
+        const total = parseFloat(totalAmountInput.value) || 0;
+        const months = parseInt(incidentMonthsInput.value, 10) || 0;
+        monthlyAmountEl.value = (months > 0 && total > 0) ? (total / months).toFixed(2) : '0.00';
     }
 
     function redistribute() {
         const total = parseFloat(totalAmountInput.value) || 0;
         const count = staffCount();
         staffCountEl.textContent = count;
+        updateMonthlyDisplay();
+
+        const amountInputs = body.querySelectorAll('.staff-amount');
 
         if (count === 0 || total <= 0) {
+            amountInputs.forEach(el => el.value = '');
             eachShareEl.textContent = '0.00';
+            totalStaffMonthsEl.textContent = '0';
             runningTotalEl.textContent = '0.00';
-            document.querySelectorAll('.staff-amount').forEach(el => el.value = '');
             return;
         }
 
-        const base = Math.floor((total / count) * 100) / 100;
-        let allocated = 0;
-        const amounts = body.querySelectorAll('.staff-amount');
-        amounts.forEach((el, i) => {
-            if (i === amounts.length - 1) {
-                el.value = (total - allocated).toFixed(2);
-            } else {
-                el.value = base.toFixed(2);
-                allocated += base;
+        if (isMonthsMode()) {
+            let sumMonths = 0;
+            body.querySelectorAll('.months-worked').forEach(el => {
+                if (!el.disabled) sumMonths += parseInt(el.value, 10) || 0;
+            });
+            totalStaffMonthsEl.textContent = sumMonths;
+
+            if (sumMonths <= 0) {
+                amountInputs.forEach(el => el.value = '');
+                runningTotalEl.textContent = '0.00';
+                return;
             }
-        });
-        eachShareEl.textContent = base.toFixed(2);
+
+            let allocated = 0;
+            amountInputs.forEach((el, i) => {
+                const tr = el.closest('tr');
+                const m = parseInt(tr.querySelector('.months-worked').value, 10) || 0;
+                if (i === amountInputs.length - 1) {
+                    el.value = (total - allocated).toFixed(2);
+                } else {
+                    const share = Math.floor((total * m / sumMonths) * 100) / 100;
+                    el.value = share.toFixed(2);
+                    allocated += share;
+                }
+            });
+            eachShareEl.textContent = '—';
+        } else {
+            const base = Math.floor((total / count) * 100) / 100;
+            let allocated = 0;
+            amountInputs.forEach((el, i) => {
+                if (i === amountInputs.length - 1) {
+                    el.value = (total - allocated).toFixed(2);
+                } else {
+                    el.value = base.toFixed(2);
+                    allocated += base;
+                }
+            });
+            eachShareEl.textContent = base.toFixed(2);
+            totalStaffMonthsEl.textContent = '0';
+        }
+
         updateRunningTotal();
     }
 
@@ -270,6 +371,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function addRow(data = {}) {
         const tr = document.createElement('tr');
+        const incidentMax = parseInt(incidentMonthsInput.value, 10) || 12;
+        const monthsMode = isMonthsMode();
         tr.innerHTML = `
             <td><input type="text" name="staff[${index}][staff_name]" class="form-control" value="${data.staff_name || ''}" required></td>
             <td><input type="text" name="staff[${index}][salary_number]" class="form-control" value="${data.salary_number || ''}" required></td>
@@ -285,7 +388,17 @@ document.addEventListener('DOMContentLoaded', function () {
                     ${options(jobTitles, data.job_title_id)}
                 </select>
             </td>
-            <td><input type="number" step="0.01" name="staff[${index}][amount]" class="form-control staff-amount" value="${data.amount || ''}" required></td>
+            <td class="months-worked-col" style="display: ${monthsMode ? '' : 'none'};">
+                <input type="number" min="1" max="${incidentMax}" step="1"
+                       name="staff[${index}][months_worked]"
+                       class="form-control months-worked"
+                       value="${data.months_worked || incidentMax}"
+                       ${monthsMode ? 'required' : 'disabled'}>
+            </td>
+            <td>
+                <input type="number" step="0.01" name="staff[${index}][amount]"
+                       class="form-control staff-amount" value="${data.amount || ''}" required>
+            </td>
             <td><button type="button" class="btn btn-sm btn-danger remove-row">×</button></td>
         `;
         body.appendChild(tr);
@@ -294,80 +407,51 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function monthLabel(ym) {
-    // ym = "2026-10" → "October 2026"
-    if (!ym || ym.length < 7) return '';
-    const [y, m] = ym.split('-').map(Number);
-    const d = new Date(y, m - 1, 1);
-    return d.toLocaleString('en-US', { month: 'long', year: 'numeric' });
-}
+        if (!ym || ym.length < 7) return '';
+        const [y, m] = ym.split('-').map(Number);
+        return new Date(y, m - 1, 1).toLocaleString('en-US', { month: 'long', year: 'numeric' });
+    }
 
-function monthBounds(ym) {
-    // returns { start: 'YYYY-MM-DD', end: 'YYYY-MM-DD' }
-    if (!ym || ym.length < 7) return { start: '', end: '' };
-    const [y, m] = ym.split('-').map(Number);
-    const start = `${y}-${String(m).padStart(2, '0')}-01`;
-    const lastDay = new Date(y, m, 0).getDate();
-    const end = `${y}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
-    return { start, end };
-}
+    function monthBounds(ym) {
+        if (!ym || ym.length < 7) return { start: '', end: '' };
+        const [y, m] = ym.split('-').map(Number);
+        const start = y + '-' + String(m).padStart(2, '0') + '-01';
+        const lastDay = new Date(y, m, 0).getDate();
+        const end = y + '-' + String(m).padStart(2, '0') + '-' + String(lastDay).padStart(2, '0');
+        return { start, end };
+    }
 
-function addPeriodRow(data = {}) {
-    const tr = document.createElement('tr');
-    const idx = periodIndex;
-    const ym = data.payroll_month || data.period_start?.slice(0, 7) || '';
-    const bounds = monthBounds(ym);
+    function addPeriodRow(data = {}) {
+        const tr = document.createElement('tr');
+        const idx = periodIndex;
+        const ym = data.payroll_month || '';
+        const bounds = monthBounds(ym);
+        tr.innerHTML = `
+            <td>
+                <input type="month" name="installments[${idx}][payroll_month]" class="form-control payroll-month" value="${ym}" required>
+                <input type="hidden" name="installments[${idx}][payroll_period]" class="payroll-period-label" value="${ym ? monthLabel(ym) : ''}">
+            </td>
+            <td><input type="date" name="installments[${idx}][period_start]" class="form-control period-start" value="${bounds.start}" readonly></td>
+            <td><input type="date" name="installments[${idx}][period_end]" class="form-control period-end" value="${bounds.end}" readonly></td>
+            <td><button type="button" class="btn btn-sm btn-danger remove-period">×</button></td>
+        `;
+        periodsBody.appendChild(tr);
+        periodIndex++;
+    }
 
-    tr.innerHTML = `
-        <td>
-            <input type="month"
-                   name="installments[${idx}][payroll_month]"
-                   class="form-control payroll-month"
-                   value="${ym}"
-                   required>
-            <input type="hidden"
-                   name="installments[${idx}][payroll_period]"
-                   class="payroll-period-label"
-                   value="${ym ? monthLabel(ym) : ''}">
-        </td>
-        <td>
-            <input type="date"
-                   name="installments[${idx}][period_start]"
-                   class="form-control period-start"
-                   value="${data.period_start || bounds.start || ''}"
-                   readonly>
-        </td>
-        <td>
-            <input type="date"
-                   name="installments[${idx}][period_end]"
-                   class="form-control period-end"
-                   value="${data.period_end || bounds.end || ''}"
-                   readonly>
-        </td>
-        <td>
-            <button type="button" class="btn btn-sm btn-danger remove-period">×</button>
-        </td>
-    `;
-    periodsBody.appendChild(tr);
-    periodIndex++;
-}
-
-// Auto-fill start/end + label when month changes
-periodsBody.addEventListener('change', function (e) {
-    if (!e.target.classList.contains('payroll-month')) return;
-    const tr = e.target.closest('tr');
-    const ym = e.target.value;
-    const bounds = monthBounds(ym);
-    tr.querySelector('.period-start').value = bounds.start;
-    tr.querySelector('.period-end').value = bounds.end;
-    tr.querySelector('.payroll-period-label').value = monthLabel(ym);
-});
+    periodsBody.addEventListener('change', function (e) {
+        if (!e.target.classList.contains('payroll-month')) return;
+        const tr = e.target.closest('tr');
+        const bounds = monthBounds(e.target.value);
+        tr.querySelector('.period-start').value = bounds.start;
+        tr.querySelector('.period-end').value = bounds.end;
+        tr.querySelector('.payroll-period-label').value = monthLabel(e.target.value);
+    });
 
     function toggleInstallments() {
         if (categorySelect.value === 'installment') {
             installmentSection.style.display = 'block';
-            if (periodsBody.children.length === 0) {
-                addPeriodRow();
-            }
+            if (periodsBody.children.length === 0) addPeriodRow();
         } else {
             installmentSection.style.display = 'none';
         }
@@ -376,6 +460,15 @@ periodsBody.addEventListener('change', function (e) {
     addBtn.addEventListener('click', () => addRow());
     addPeriodBtn.addEventListener('click', () => addPeriodRow());
     totalAmountInput.addEventListener('input', redistribute);
+    allocationSelect.addEventListener('change', toggleAllocationUI);
+    incidentMonthsInput.addEventListener('input', function () {
+        const max = parseInt(this.value, 10) || 1;
+        body.querySelectorAll('.months-worked').forEach(el => {
+            el.max = max;
+            if (parseInt(el.value, 10) > max) el.value = max;
+        });
+        redistribute();
+    });
     categorySelect.addEventListener('change', toggleInstallments);
 
     body.addEventListener('click', function (e) {
@@ -389,24 +482,21 @@ periodsBody.addEventListener('change', function (e) {
         }
     });
 
-    periodsBody.addEventListener('click', function (e) {
-        if (e.target.classList.contains('remove-period')) {
-            if (periodsBody.children.length > 1) {
-                e.target.closest('tr').remove();
-            } else {
-                alert('At least one period is required for installment.');
-            }
-        }
+    body.addEventListener('input', function (e) {
+        if (e.target.classList.contains('months-worked')) redistribute();
+        if (e.target.classList.contains('staff-amount')) updateRunningTotal();
     });
 
-    body.addEventListener('input', function (e) {
-        if (e.target.classList.contains('staff-amount')) {
-            updateRunningTotal();
+    periodsBody.addEventListener('click', function (e) {
+        if (e.target.classList.contains('remove-period')) {
+            if (periodsBody.children.length > 1) e.target.closest('tr').remove();
+            else alert('At least one period is required for installment.');
         }
     });
 
     addRow();
     toggleInstallments();
+    toggleAllocationUI();
 });
 </script>
 @endsection

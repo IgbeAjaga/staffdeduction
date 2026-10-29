@@ -185,99 +185,148 @@ class DeductionController extends Controller
     }
 
     public function bulkStore(StoreBulkDeductionRequest $request)
-    {
-        $this->authorize('create', Deduction::class);
+{
+    $this->authorize('create', Deduction::class);
 
-        DB::beginTransaction();
+    DB::beginTransaction();
 
-        try {
-            $data = $request->validated();
-            $groupId = 'GRP-' . strtoupper(Str::random(8));
-            $isInstallment = $data['category'] === 'installment';
-            $periods = $isInstallment ? ($data['installments'] ?? []) : [];
+    try {
+        $data = $request->validated();
+        $groupId = 'GRP-' . strtoupper(Str::random(8));
+        $isInstallment = $data['category'] === 'installment';
+        $periods = $isInstallment ? ($data['installments'] ?? []) : [];
+        $method = $data['allocation_method'] ?? 'equal';
+        $totalAmount = (float) $data['total_amount'];
+        $incidentMonths = (int) ($data['incident_months'] ?? 1);
+        $staffList = $data['staff'];
+        $nStaff = count($staffList);
 
-            if ($isInstallment && count($periods) < 1) {
-                return back()->withInput()->with('error', 'Add at least one installment period.');
-            }
-
-            $documentPath = null;
-            if ($request->hasFile('supporting_document')) {
-                $documentPath = $request->file('supporting_document')
-                    ->store('deductions', 'public');
-            }
-
-            $created = 0;
-
-            foreach ($data['staff'] as $staff) {
-                $deduction = Deduction::create([
-                    'group_id'            => $groupId,
-                    'branch_id'           => $data['branch_id'],
-                    'section_id'          => $data['section_id'],
-                    'department_id'       => $staff['department_id'] ?? null,
-                    'job_title_id'        => $staff['job_title_id'] ?? null,
-                    'deduction_type_id'   => $data['deduction_type_id'],
-                    'staff_name'          => $staff['staff_name'],
-                    'salary_number'       => $staff['salary_number'],
-                    'amount'              => $staff['amount'],
-                    'category'            => $data['category'],
-                    'deduction_date'      => $data['deduction_date'],
-                    'effective_date'      => $data['effective_date'],
-                    'reason'              => $data['reason'],
-                    'remarks'             => $data['remarks'] ?? null,
-                    'supporting_document' => $documentPath,
-                    'status'              => 'pending',
-                    'created_by'          => Auth::id(),
-                ]);
-
-                if ($isInstallment) {
-                    $staffAmount = (float) $staff['amount'];
-                    $n = count($periods);
-                    $base = floor(($staffAmount / $n) * 100) / 100;
-                    $allocated = 0;
-
-                    foreach ($periods as $i => $period) {
-                        $resolved = $this->resolveInstallmentPeriod($period);
-                        $amt = ($i === $n - 1)
-                            ? round($staffAmount - $allocated, 2)
-                            : $base;
-                        $allocated += $amt;
-
-                        DeductionInstallment::create([
-                            'deduction_id'   => $deduction->id,
-                            'payroll_period' => $resolved['payroll_period'],
-                            'period_start'   => $resolved['period_start'],
-                            'period_end'     => $resolved['period_end'],
-                            'amount'         => $amt,
-                            'status'         => 'pending',
-                        ]);
-                    }
-                }
-
-                DeductionAudit::create([
-                    'deduction_id' => $deduction->id,
-                    'user_id'      => Auth::id(),
-                    'action'       => 'created',
-                    'new_values'   => $deduction->toArray(),
-                    'description'  => 'Created as part of group ' . $groupId,
-                ]);
-
-                $created++;
-            }
-
-            DB::commit();
-
-            return redirect()
-                ->route('deductions.index', ['group_id' => $groupId])
-                ->with('success', "{$created} deductions created under group {$groupId}." .
-                    ($isInstallment ? ' Installment periods were created for each staff.' : ''));
-        } catch (\Exception $e) {
-            DB::rollBack();
-
-            return back()
-                ->with('error', 'Failed to create bulk deductions: ' . $e->getMessage())
-                ->withInput();
+        if ($isInstallment && count($periods) < 1) {
+            return back()->withInput()->with('error', 'Add at least one installment period.');
         }
+
+        // --- Allocate amounts server-side ---
+        $allocated = 0;
+
+        if ($method === 'months_worked') {
+            $sumMonths = collect($staffList)->sum(fn ($s) => (int) ($s['months_worked'] ?? 0));
+            if ($sumMonths < 1) {
+                return back()->withInput()->with('error', 'Total months worked must be at least 1.');
+            }
+            foreach ($staffList as $i => &$s) {
+                $m = (int) ($s['months_worked'] ?? 0);
+                if ($i === $nStaff - 1) {
+                    $s['amount'] = round($totalAmount - $allocated, 2);
+                } else {
+                    $share = floor(($totalAmount * $m / $sumMonths) * 100) / 100;
+                    $s['amount'] = $share;
+                    $allocated += $share;
+                }
+            }
+            unset($s);
+        } else {
+            // Equal share
+            $base = floor(($totalAmount / $nStaff) * 100) / 100;
+            foreach ($staffList as $i => &$s) {
+                if ($i === $nStaff - 1) {
+                    $s['amount'] = round($totalAmount - $allocated, 2);
+                } else {
+                    $s['amount'] = $base;
+                    $allocated += $base;
+                }
+            }
+            unset($s);
+        }
+
+        $documentPath = null;
+        if ($request->hasFile('supporting_document')) {
+            $documentPath = $request->file('supporting_document')->store('deductions', 'public');
+        }
+
+        $created = 0;
+
+        foreach ($staffList as $staff) {
+            $remarks = $data['remarks'] ?? null;
+            if ($method === 'months_worked') {
+                $note = 'Allocation: months worked; Incident months: ' . $incidentMonths
+                    . '; Months worked: ' . ($staff['months_worked'] ?? '-')
+                    . '; Monthly: ' . number_format($totalAmount / max($incidentMonths, 1), 2);
+                $remarks = trim(($remarks ? $remarks . ' | ' : '') . $note);
+            } else {
+                $note = 'Allocation: equal share among ' . $nStaff . ' staff';
+                $remarks = trim(($remarks ? $remarks . ' | ' : '') . $note);
+            }
+
+            $deduction = Deduction::create([
+                'group_id'            => $groupId,
+                'branch_id'           => $data['branch_id'],
+                'section_id'          => $data['section_id'],
+                'department_id'       => $staff['department_id'] ?? null,
+                'job_title_id'        => $staff['job_title_id'] ?? null,
+                'deduction_type_id'   => $data['deduction_type_id'],
+                'staff_name'          => $staff['staff_name'],
+                'salary_number'       => $staff['salary_number'],
+                'amount'              => $staff['amount'],
+                'category'            => $data['category'],
+                'deduction_date'      => $data['deduction_date'],
+                'effective_date'      => $data['effective_date'],
+                'reason'              => $data['reason'],
+                'remarks'             => $remarks,
+                'supporting_document' => $documentPath,
+                'status'              => 'pending',
+                'created_by'          => Auth::id(),
+            ]);
+
+            if ($isInstallment) {
+                $staffAmount = (float) $staff['amount'];
+                $n = count($periods);
+                $base = floor(($staffAmount / $n) * 100) / 100;
+                $periodAllocated = 0;
+
+                foreach ($periods as $i => $period) {
+                    $resolved = $this->resolveInstallmentPeriod($period);
+                    $amt = ($i === $n - 1)
+                        ? round($staffAmount - $periodAllocated, 2)
+                        : $base;
+                    $periodAllocated += $amt;
+
+                    DeductionInstallment::create([
+                        'deduction_id'   => $deduction->id,
+                        'payroll_period' => $resolved['payroll_period'],
+                        'period_start'   => $resolved['period_start'],
+                        'period_end'     => $resolved['period_end'],
+                        'amount'         => $amt,
+                        'status'         => 'pending',
+                    ]);
+                }
+            }
+
+            DeductionAudit::create([
+                'deduction_id' => $deduction->id,
+                'user_id'      => Auth::id(),
+                'action'       => 'created',
+                'new_values'   => $deduction->toArray(),
+                'description'  => 'Created as part of group ' . $groupId . ' (' . $method . ')',
+            ]);
+
+            $created++;
+        }
+
+        DB::commit();
+
+        $label = $method === 'months_worked' ? 'by months worked' : 'equal share';
+
+        return redirect()
+            ->route('deductions.index', ['group_id' => $groupId])
+            ->with('success', "{$created} deductions created under group {$groupId} ({$label}).");
+    } catch (\Exception $e) {
+        DB::rollBack();
+
+        return back()
+            ->with('error', 'Failed to create bulk deductions: ' . $e->getMessage())
+            ->withInput();
     }
+}
 
     public function groupApprove(Request $request, string $groupId)
     {

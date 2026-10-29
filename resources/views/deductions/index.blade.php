@@ -247,7 +247,25 @@
                                     <td colspan="13" class="text-center text-muted py-4">No deductions found.</td>
                                 </tr>
                             @endforelse
-                        </tbody>
+                                                </tbody>
+                        @if($deductions->count())
+                            <tfoot class="table-dark fw-bold">
+                                <tr>
+                                    <td colspan="9" class="text-end">TOTAL (this page)</td>
+                                    <td>₦{{ number_format($deductions->getCollection()->sum('amount'), 2) }}</td>
+                                    <td colspan="4"></td>
+                                </tr>
+                                @isset($grandTotal)
+                                    <tr>
+                                        <td colspan="9" class="text-end">
+                                            GRAND TOTAL (all {{ $deductions->total() }} records)
+                                        </td>
+                                        <td>₦{{ number_format($grandTotal, 2) }}</td>
+                                        <td colspan="4"></td>
+                                    </tr>
+                                @endisset
+                            </tfoot>
+                        @endif
                     </table>
 
                     <div class="mt-3">

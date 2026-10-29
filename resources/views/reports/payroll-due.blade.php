@@ -160,8 +160,7 @@
                                 <th>Type</th>
                                 <th>Payment Plan</th>
                                 <th>Payroll Period</th>
-                                <th class="text-end">Amount Due</th>
-                                <th class="text-end">Staff Remaining</th>                                
+                                <th class="text-end">Amount Due</th>                                                                
                                 <th>Period Status</th>
                                 <th>Reason</th>
                                 <th>Deduction ID</th>
@@ -178,8 +177,7 @@
                                     <td>{{ $row['type'] ?? '—' }}</td>
                                     <td><span class="badge bg-light-secondary">{{ ucfirst($row['category']) }}</span></td>
                                     <td>{{ $row['payroll_period'] ?? '—' }}</td>
-                                    <td class="text-end fw-bold">₦{{ number_format($row['amount_due'], 2) }}</td>
-                                    <td class="text-end text-danger fw-bold">₦{{ number_format($row['staff_remaining'] ?? 0, 2) }}</td>                                    
+                                    <td class="text-end fw-bold">₦{{ number_format($row['amount_due'], 2) }}</td>                                                                        
                                     <td>
                                         @php
                                             $badge = match($row['status']) {

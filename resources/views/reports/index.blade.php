@@ -37,7 +37,7 @@
             <div class="card-body">
                 <form method="GET">
                     <div class="row g-1 align-items-end">
-                        <div class="col-md-3">
+                        <div class="col-md-2">
                             <label class="form-label">Search</label>
                             <input type="text" name="search" value="{{ request('search') }}"
                                    class="form-control" placeholder="Name or salary number">
@@ -157,8 +157,9 @@
                                 <th>Branch</th>
                                 <th>Section</th>
                                 <th>Department</th>
-                                <th class="text-end">Applied</th>
-                                <th class="text-end">Remaining</th>
+                                <th class="text-end">Deducted</th>
+                                <th class="text-end">To be Deducted</th>
+                                <th class="text-end">Pending Approval</th>
                                 <th class="text-center">Records</th>
                             </tr>
                         </thead>
@@ -183,6 +184,9 @@
                                     <td class="text-end text-danger fw-bold">
                                         ₦{{ number_format($row['remaining'], 2) }}
                                     </td>
+                                    <td class="text-end text-danger fw-bold">
+                                        ₦{{ number_format($row['pending'], 2) }}
+                                    </td>
                                     <td class="text-center">
                                         <span class="badge bg-light-secondary">{{ $row['deduction_count'] }}</span>
                                     </td>
@@ -192,7 +196,27 @@
                                     <td colspan="9" class="text-center text-muted py-4">No staff found for the selected filters.</td>
                                 </tr>
                             @endforelse
-                        </tbody>
+                                                </tbody>
+                        @if($staffRows->count())
+                            @php
+                                // Use the all-pages totals from the controller if available, otherwise sum the current page
+                                $tApplied   = $totals['applied']         ?? $staffRows->getCollection()->sum('applied');
+                                $tRemaining = $totals['remaining']       ?? $staffRows->getCollection()->sum('remaining');
+                                $tPending   = $totals['pending']         ?? $staffRows->getCollection()->sum('pending');
+                                $tRecords   = $totals['deduction_count'] ?? $staffRows->getCollection()->sum('deduction_count');
+                            @endphp
+                            <tfoot class="table-dark fw-bold">
+                                <tr>
+                                    <td colspan="6" class="text-end">
+                                        TOTAL {{ isset($totals) ? '(all ' . $staffRows->total() . ' staff)' : '(this page)' }}
+                                    </td>
+                                    <td class="text-end">₦{{ number_format($tApplied, 2) }}</td>
+                                    <td class="text-end">₦{{ number_format($tRemaining, 2) }}</td>
+                                    <td class="text-end">₦{{ number_format($tPending, 2) }}</td>
+                                    <td class="text-center">{{ $tRecords }}</td>
+                                </tr>
+                            </tfoot>
+                        @endif
                     </table>
                 </div>
 
