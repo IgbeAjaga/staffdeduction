@@ -37,7 +37,7 @@
             </div>
         @endif
 
-        <form method="POST" action="{{ route('deductions.bulk.store') }}" enctype="multipart/form-data">
+        <form method="POST" action="{{ route('deductions.bulk.store') }}" enctype="multipart/form-data" id="bulk-form">
             @csrf
 
             <div class="card mb-2">
@@ -100,10 +100,22 @@
 
                         <div class="col-md-4">
                             <label class="form-label">Total Amount <span class="text-danger">*</span></label>
-                            <input type="number" step="0.01" min="0.01" name="total_amount"
-                                   id="total-amount" class="form-control" required
-                                   placeholder="e.g. 1000000"
-                                   value="{{ old('total_amount') }}">
+                            @php
+                                $oldTotal = old('total_amount');
+                                $totalDisplay = $oldTotal !== null && $oldTotal !== ''
+                                    ? number_format((float) str_replace(',', '', $oldTotal), 2, '.', ',')
+                                    : '';
+                            @endphp
+                            <input type="text"
+                                   name="total_amount"
+                                   id="total-amount"
+                                   inputmode="decimal"
+                                   autocomplete="off"
+                                   class="form-control money-input"
+                                   required
+                                   placeholder="e.g. 1,000,000"
+                                   value="{{ $totalDisplay }}">
+                            <small class="text-muted">Separators appear as you type</small>
                         </div>
 
                         <div class="col-md-4">
@@ -202,7 +214,7 @@
                                     <th>Department</th>
                                     <th>Job Title</th>
                                     <th class="months-worked-col" width="120" style="display: none;">Months Worked *</th>
-                                    <th width="140">Amount *</th>
+                                    <th width="160">Amount *</th>
                                     <th width="60"></th>
                                 </tr>
                             </thead>
@@ -246,12 +258,89 @@ document.addEventListener('DOMContentLoaded', function () {
     const periodsBody = document.getElementById('bulk-periods-body');
     const addPeriodBtn = document.getElementById('add-bulk-period');
     const allocationHint = document.getElementById('allocation-hint');
+    const form = document.getElementById('bulk-form');
 
     let index = 0;
     let periodIndex = 0;
 
     const departments = @json($departments->map(fn($d) => ['id' => $d->id, 'name' => $d->name]));
     const jobTitles   = @json($jobTitles->map(fn($j) => ['id' => $j->id, 'name' => $j->name]));
+
+    /* ---------- Money helpers ---------- */
+    function stripMoney(val) {
+        if (val === null || val === undefined) return '';
+        return String(val).replace(/,/g, '').replace(/[^\d.]/g, '');
+    }
+
+    function formatMoney(val) {
+        let raw = stripMoney(val);
+        if (raw === '' || raw === '.') return '';
+
+        const parts = raw.split('.');
+        let intPart = parts[0] || '0';
+        let decPart = parts.length > 1 ? parts[1].slice(0, 2) : null;
+
+        intPart = intPart.replace(/^0+(?=\d)/, '');
+        intPart = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+
+        if (decPart !== null) {
+            return intPart + '.' + decPart;
+        }
+        if (String(val).endsWith('.') && !String(val).includes('..')) {
+            return intPart + '.';
+        }
+        return intPart;
+    }
+
+    function parseMoney(val) {
+        const n = parseFloat(stripMoney(val));
+        return isNaN(n) ? 0 : n;
+    }
+
+    function bindMoneyInput(el) {
+        if (!el || el.dataset.moneyBound) return;
+        el.dataset.moneyBound = '1';
+
+        el.addEventListener('input', function () {
+            const start = this.selectionStart;
+            const before = this.value;
+            const formatted = formatMoney(this.value);
+            this.value = formatted;
+            const diff = formatted.length - before.length;
+            const pos = Math.max(0, (start || 0) + diff);
+            try { this.setSelectionRange(pos, pos); } catch (e) {}
+
+            if (this.id === 'total-amount') {
+                redistribute();
+            } else if (this.classList.contains('staff-amount')) {
+                updateRunningTotal();
+            }
+        });
+
+        el.addEventListener('blur', function () {
+            const n = parseMoney(this.value);
+            if (this.value !== '' && !isNaN(n)) {
+                this.value = formatMoney(n.toFixed(2));
+            }
+            if (this.id === 'total-amount') {
+                redistribute();
+            } else if (this.classList.contains('staff-amount')) {
+                updateRunningTotal();
+            }
+        });
+    }
+
+    bindMoneyInput(totalAmountInput);
+
+    if (form) {
+        form.addEventListener('submit', function () {
+            form.querySelectorAll('.money-input').forEach(el => {
+                if (!el.disabled) {
+                    el.value = stripMoney(el.value);
+                }
+            });
+        });
+    }
 
     function options(list, selected = '') {
         return list.map(i =>
@@ -296,13 +385,15 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function updateMonthlyDisplay() {
-        const total = parseFloat(totalAmountInput.value) || 0;
+        const total = parseMoney(totalAmountInput.value);
         const months = parseInt(incidentMonthsInput.value, 10) || 0;
-        monthlyAmountEl.value = (months > 0 && total > 0) ? (total / months).toFixed(2) : '0.00';
+        monthlyAmountEl.value = (months > 0 && total > 0)
+            ? formatMoney((total / months).toFixed(2))
+            : '0.00';
     }
 
     function redistribute() {
-        const total = parseFloat(totalAmountInput.value) || 0;
+        const total = parseMoney(totalAmountInput.value);
         const count = staffCount();
         staffCountEl.textContent = count;
         updateMonthlyDisplay();
@@ -335,10 +426,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 const tr = el.closest('tr');
                 const m = parseInt(tr.querySelector('.months-worked').value, 10) || 0;
                 if (i === amountInputs.length - 1) {
-                    el.value = (total - allocated).toFixed(2);
+                    el.value = formatMoney((total - allocated).toFixed(2));
                 } else {
                     const share = Math.floor((total * m / sumMonths) * 100) / 100;
-                    el.value = share.toFixed(2);
+                    el.value = formatMoney(share.toFixed(2));
                     allocated += share;
                 }
             });
@@ -348,13 +439,13 @@ document.addEventListener('DOMContentLoaded', function () {
             let allocated = 0;
             amountInputs.forEach((el, i) => {
                 if (i === amountInputs.length - 1) {
-                    el.value = (total - allocated).toFixed(2);
+                    el.value = formatMoney((total - allocated).toFixed(2));
                 } else {
-                    el.value = base.toFixed(2);
+                    el.value = formatMoney(base.toFixed(2));
                     allocated += base;
                 }
             });
-            eachShareEl.textContent = base.toFixed(2);
+            eachShareEl.textContent = formatMoney(base.toFixed(2));
             totalStaffMonthsEl.textContent = '0';
         }
 
@@ -364,15 +455,19 @@ document.addEventListener('DOMContentLoaded', function () {
     function updateRunningTotal() {
         let sum = 0;
         document.querySelectorAll('.staff-amount').forEach(el => {
-            sum += parseFloat(el.value) || 0;
+            sum += parseMoney(el.value);
         });
-        runningTotalEl.textContent = sum.toFixed(2);
+        runningTotalEl.textContent = formatMoney(sum.toFixed(2));
     }
 
     function addRow(data = {}) {
         const tr = document.createElement('tr');
         const incidentMax = parseInt(incidentMonthsInput.value, 10) || 12;
         const monthsMode = isMonthsMode();
+        const amountVal = data.amount != null && data.amount !== ''
+            ? formatMoney(Number(data.amount).toFixed(2))
+            : '';
+
         tr.innerHTML = `
             <td><input type="text" name="staff[${index}][staff_name]" class="form-control" value="${data.staff_name || ''}" required></td>
             <td><input type="text" name="staff[${index}][salary_number]" class="form-control" value="${data.salary_number || ''}" required></td>
@@ -396,12 +491,17 @@ document.addEventListener('DOMContentLoaded', function () {
                        ${monthsMode ? 'required' : 'disabled'}>
             </td>
             <td>
-                <input type="number" step="0.01" name="staff[${index}][amount]"
-                       class="form-control staff-amount" value="${data.amount || ''}" required>
+                <input type="text" step="0.01"
+                       name="staff[${index}][amount]"
+                       inputmode="decimal"
+                       autocomplete="off"
+                       class="form-control staff-amount money-input"
+                       value="${amountVal}" required>
             </td>
             <td><button type="button" class="btn btn-sm btn-danger remove-row">×</button></td>
         `;
         body.appendChild(tr);
+        bindMoneyInput(tr.querySelector('.staff-amount'));
         index++;
         redistribute();
     }
@@ -459,7 +559,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
     addBtn.addEventListener('click', () => addRow());
     addPeriodBtn.addEventListener('click', () => addPeriodRow());
-    totalAmountInput.addEventListener('input', redistribute);
     allocationSelect.addEventListener('change', toggleAllocationUI);
     incidentMonthsInput.addEventListener('input', function () {
         const max = parseInt(this.value, 10) || 1;
@@ -484,7 +583,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
     body.addEventListener('input', function (e) {
         if (e.target.classList.contains('months-worked')) redistribute();
-        if (e.target.classList.contains('staff-amount')) updateRunningTotal();
     });
 
     periodsBody.addEventListener('click', function (e) {

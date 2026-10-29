@@ -88,10 +88,22 @@
 
     <div class="col-md-4">
         <label class="form-label">Amount <span class="text-danger">*</span></label>
-        <input type="number" step="0.01" name="amount" id="amount"
-               value="{{ old('amount', $deduction->amount ?? '') }}"
-               class="form-control @error('amount') is-invalid @enderror" required>
+        @php
+            $amountVal = old('amount', $deduction->amount ?? '');
+            $amountDisplay = $amountVal !== '' && $amountVal !== null
+                ? number_format((float) $amountVal, 2, '.', ',')
+                : '';
+        @endphp
+        <input type="text"
+               name="amount"
+               id="amount"
+               inputmode="decimal"
+               autocomplete="off"
+               value="{{ $amountDisplay }}"
+               class="form-control money-input @error('amount') is-invalid @enderror"
+               required>
         @error('amount') <div class="invalid-feedback">{{ $message }}</div> @enderror
+        <small class="text-muted">Example: 1,250,000.00</small>
     </div>
 
     <div class="col-md-4">
@@ -169,7 +181,7 @@
                     <th width="200">Payroll Month *</th>
                     <th>Period Start</th>
                     <th>Period End</th>
-                    <th width="160">Amount *</th>
+                    <th width="180">Amount *</th>
                     <th width="70">Action</th>
                 </tr>
             </thead>
@@ -195,6 +207,10 @@
                         }
                         $startVal = old("installments.$i.period_start", isset($inst['period_start']) ? \Illuminate\Support\Carbon::parse($inst['period_start'])->format('Y-m-d') : '');
                         $endVal = old("installments.$i.period_end", isset($inst['period_end']) ? \Illuminate\Support\Carbon::parse($inst['period_end'])->format('Y-m-d') : '');
+                        $instAmt = old("installments.$i.amount", $inst['amount'] ?? '');
+                        $instAmtDisplay = $instAmt !== '' && $instAmt !== null
+                            ? number_format((float) $instAmt, 2, '.', ',')
+                            : '';
                     @endphp
                     <tr class="installment-row">
                         <td>
@@ -223,10 +239,12 @@
                                    readonly>
                         </td>
                         <td>
-                            <input type="number" step="0.01"
+                            <input type="text"
                                    name="installments[{{ $i }}][amount]"
-                                   value="{{ old("installments.$i.amount", $inst['amount'] ?? '') }}"
-                                   class="form-control installment-amount"
+                                   value="{{ $instAmtDisplay }}"
+                                   inputmode="decimal"
+                                   autocomplete="off"
+                                   class="form-control installment-amount money-input"
                                    required>
                         </td>
                         <td>
@@ -260,8 +278,79 @@ document.addEventListener('DOMContentLoaded', function () {
     const installmentSection = document.getElementById('installment-section');
     const installmentsBody = document.getElementById('installments-body');
     const addBtn = document.getElementById('add-installment');
+    const form = document.querySelector('form');
     let rowIndex = document.querySelectorAll('.installment-row').length;
 
+    /* ---------- Money formatting ---------- */
+    function stripMoney(val) {
+        if (val === null || val === undefined) return '';
+        return String(val).replace(/,/g, '').replace(/[^\d.]/g, '');
+    }
+
+    function formatMoney(val) {
+        let raw = stripMoney(val);
+        if (raw === '' || raw === '.') return '';
+
+        const parts = raw.split('.');
+        let intPart = parts[0] || '0';
+        let decPart = parts.length > 1 ? parts[1].slice(0, 2) : null;
+
+        intPart = intPart.replace(/^0+(?=\d)/, '');
+        intPart = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+
+        if (decPart !== null) {
+            return intPart + '.' + decPart;
+        }
+        // Keep trailing dot while typing decimals
+        if (String(val).endsWith('.') && !String(val).includes('..')) {
+            return intPart + '.';
+        }
+        return intPart;
+    }
+
+    function parseMoney(val) {
+        const n = parseFloat(stripMoney(val));
+        return isNaN(n) ? 0 : n;
+    }
+
+    function bindMoneyInput(el) {
+        if (!el || el.dataset.moneyBound) return;
+        el.dataset.moneyBound = '1';
+
+        el.addEventListener('input', function () {
+            const start = this.selectionStart;
+            const before = this.value;
+            const formatted = formatMoney(this.value);
+            this.value = formatted;
+
+            // Rough caret restore
+            const diff = formatted.length - before.length;
+            const pos = Math.max(0, (start || 0) + diff);
+            try { this.setSelectionRange(pos, pos); } catch (e) {}
+        });
+
+        el.addEventListener('blur', function () {
+            const n = parseMoney(this.value);
+            if (this.value !== '' && !isNaN(n)) {
+                this.value = formatMoney(n.toFixed(2));
+            }
+        });
+    }
+
+    document.querySelectorAll('.money-input').forEach(bindMoneyInput);
+
+    /* Strip commas before submit so Laravel gets plain numbers */
+    if (form) {
+        form.addEventListener('submit', function () {
+            form.querySelectorAll('.money-input').forEach(el => {
+                if (!el.disabled) {
+                    el.value = stripMoney(el.value);
+                }
+            });
+        });
+    }
+
+    /* ---------- Month helpers ---------- */
     function monthLabel(ym) {
         if (!ym || ym.length < 7) return '';
         const [y, m] = ym.split('-').map(Number);
@@ -294,6 +383,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (on && installmentsBody.children.length === 0) {
             addInstallmentRow();
         }
+        updateTotal();
     }
 
     function addInstallmentRow() {
@@ -315,14 +405,16 @@ document.addEventListener('DOMContentLoaded', function () {
                        class="form-control period-end" readonly>
             </td>
             <td>
-                <input type="number" step="0.01" name="installments[${rowIndex}][amount]"
-                       class="form-control installment-amount" required>
+                <input type="text" name="installments[${rowIndex}][amount]"
+                       inputmode="decimal" autocomplete="off"
+                       class="form-control installment-amount money-input" required>
             </td>
             <td>
                 <button type="button" class="btn btn-sm btn-danger remove-installment">×</button>
             </td>
         `;
         installmentsBody.appendChild(tr);
+        bindMoneyInput(tr.querySelector('.money-input'));
         rowIndex++;
         updateTotal();
     }
@@ -330,9 +422,9 @@ document.addEventListener('DOMContentLoaded', function () {
     function updateTotal() {
         let total = 0;
         document.querySelectorAll('.installment-amount').forEach(input => {
-            if (!input.disabled) total += parseFloat(input.value) || 0;
+            if (!input.disabled) total += parseMoney(input.value);
         });
-        document.getElementById('installment-total').textContent = total.toFixed(2);
+        document.getElementById('installment-total').textContent = formatMoney(total.toFixed(2));
     }
 
     categorySelect.addEventListener('change', toggleInstallments);
@@ -357,7 +449,6 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-    // Fill dates for existing month values on load
     installmentsBody.querySelectorAll('.installment-row').forEach(tr => {
         const monthEl = tr.querySelector('.payroll-month');
         if (monthEl && monthEl.value) {

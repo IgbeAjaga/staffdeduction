@@ -34,14 +34,14 @@ class UpdateDeductionRequest extends FormRequest
             'supporting_document' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
             'status'            => ['sometimes', Rule::in(['pending', 'approved', 'rejected', 'applied', 'cancelled'])],
 
-            'installments'                      => ['required_if:category,installment', 'array', 'min:1'],
-            'installments.*.id'                 => ['nullable', 'exists:deduction_installments,id'],
-            'installments.*.payroll_month'      => ['required_with:installments', 'date_format:Y-m'],
-            'installments.*.payroll_period'     => ['nullable', 'string', 'max:50'],
-            'installments.*.period_start'       => ['nullable', 'date'],
-            'installments.*.period_end'         => ['nullable', 'date'],
-            'installments.*.amount'             => ['required_with:installments', 'numeric', 'min:0'],
-            'installments.*.is_edited'          => ['sometimes', 'boolean'],
+            'installments'                    => ['required_if:category,installment', 'array', 'min:1'],
+            'installments.*.id'               => ['nullable', 'exists:deduction_installments,id'],
+            'installments.*.payroll_month'    => ['required_with:installments', 'date_format:Y-m'],
+            'installments.*.payroll_period'   => ['nullable', 'string', 'max:50'],
+            'installments.*.period_start'     => ['nullable', 'date'],
+            'installments.*.period_end'       => ['nullable', 'date'],
+            'installments.*.amount'           => ['required_with:installments', 'numeric', 'min:0'],
+            'installments.*.is_edited'        => ['sometimes', 'boolean'],
         ];
     }
 
@@ -55,11 +55,13 @@ class UpdateDeductionRequest extends FormRequest
             'deduction_type_id.required'      => 'Please select a deduction type.',
             'reason.required'                 => 'Reason for deduction is required.',
             'amount.required'                 => 'Amount is required.',
+            'amount.numeric'                  => 'Amount must be a valid number.',
             'amount.min'                      => 'Amount must be greater than zero.',
             'category.required'               => 'Please choose One-time or Installment.',
             'effective_date.after_or_equal'   => 'Effective date cannot be before deduction date.',
             'installments.required_if'        => 'Please add at least one installment period.',
             'installments.*.payroll_month.required_with' => 'Select a payroll month for each installment.',
+            'installments.*.amount.required_with'        => 'Amount is required for each installment.',
         ];
     }
 
@@ -69,9 +71,19 @@ class UpdateDeductionRequest extends FormRequest
             $this->merge(['category' => strtolower($this->category)]);
         }
 
+        if ($this->has('amount')) {
+            $this->merge([
+                'amount' => $this->cleanMoney($this->amount),
+            ]);
+        }
+
         if ($this->has('installments') && is_array($this->installments)) {
             $normalized = [];
             foreach ($this->installments as $i => $row) {
+                if (isset($row['amount'])) {
+                    $row['amount'] = $this->cleanMoney($row['amount']);
+                }
+
                 $ym = $row['payroll_month'] ?? null;
                 if ($ym) {
                     try {
@@ -82,6 +94,7 @@ class UpdateDeductionRequest extends FormRequest
                     } catch (\Throwable $e) {
                     }
                 }
+
                 $normalized[$i] = $row;
             }
             $this->merge(['installments' => $normalized]);
@@ -92,8 +105,11 @@ class UpdateDeductionRequest extends FormRequest
     {
         $validator->after(function ($validator) {
             if ($this->category === 'installment' && $this->has('installments')) {
-                $totalInstallments = collect($this->installments)->sum('amount');
+                $totalInstallments = collect($this->installments)->sum(function ($item) {
+                    return (float) ($item['amount'] ?? 0);
+                });
                 $mainAmount = (float) $this->amount;
+
                 if (abs($totalInstallments - $mainAmount) > 1) {
                     $validator->errors()->add(
                         'amount',
@@ -102,5 +118,16 @@ class UpdateDeductionRequest extends FormRequest
                 }
             }
         });
+    }
+
+    private function cleanMoney($value): string
+    {
+        if ($value === null || $value === '') {
+            return '';
+        }
+
+        $cleaned = preg_replace('/[^\d.]/', '', (string) $value);
+
+        return $cleaned ?? '';
     }
 }
